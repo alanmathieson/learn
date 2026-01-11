@@ -49,10 +49,12 @@ export async function POST(req: Request) {
   const eventType = evt.type
 
   if (eventType === 'user.created' || eventType === 'user.updated') {
-    const { id, email_addresses, first_name, last_name } = evt.data
+    const { id, email_addresses, first_name, last_name, public_metadata } = evt.data
 
     const email = email_addresses?.[0]?.email_address
     const name = [first_name, last_name].filter(Boolean).join(' ') || null
+    // Role can be set in Clerk dashboard via publicMetadata.role
+    const role = (public_metadata?.role as string) || 'student'
 
     if (!email) {
       return new Response('No email found', { status: 400 })
@@ -68,8 +70,7 @@ export async function POST(req: Request) {
           clerk_id: id,
           email,
           name,
-          // Default role is 'student', can be changed by admin
-          role: 'student',
+          role,
         },
         {
           onConflict: 'clerk_id',

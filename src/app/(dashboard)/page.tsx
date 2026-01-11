@@ -1,6 +1,7 @@
 import { Header } from "@/components/layout/header"
 import { ExamCountdown } from "@/components/dashboard/exam-countdown"
 import { ProgressOverview } from "@/components/dashboard/progress-overview"
+import { DashboardHelp } from "@/components/help/dashboard-help"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CalendarPlus, Plus, Sparkles } from "lucide-react"
@@ -9,7 +10,7 @@ import Link from "next/link"
 export default function DashboardPage() {
   return (
     <>
-      <Header title="Dashboard" />
+      <Header title="Dashboard" helpContent={<DashboardHelp />} />
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
           {/* Welcome Section */}
