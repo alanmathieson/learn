@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useParams } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -34,9 +35,11 @@ import {
   Calculator,
   Languages,
   Loader2,
+  ArrowLeft,
 } from "lucide-react"
+import Link from "next/link"
 import { NoteType } from "@/types"
-import { usePracticeNotes } from "@/hooks/use-practice-notes"
+import { usePracticeNote } from "@/hooks/use-practice-notes"
 
 const noteTypes: { value: NoteType; label: string }[] = [
   { value: "notes", label: "Notes" },
@@ -51,51 +54,31 @@ const subjects = [
   { id: "33333333-3333-3333-3333-333333333333", name: "Russian", icon: Languages, color: "text-red-500" },
 ]
 
-const sampleContent = `# Sample Note
-
-## Markdown Support
-
-You can use **bold**, *italic*, and \`code\` formatting.
-
-### Lists
-- Item one
-- Item two
-- Item three
-
-### Code Blocks
-\`\`\`python
-def hello():
-    print("Hello, World!")
-\`\`\`
-
-## LaTeX Support
-
-Inline math: $E = mc^2$
-
-Block math:
-$$
-\\int_0^\\infty e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}
-$$
-
-### Physics Formulas
-$$F = ma$$
-$$E = \\frac{1}{2}mv^2$$
-$$\\vec{F} = q\\vec{v} \\times \\vec{B}$$
-
-### Maths Formulas
-$$\\frac{d}{dx}[f(g(x))] = f'(g(x)) \\cdot g'(x)$$
-$$\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}$$
-`
-
-export default function NewPracticeNotePage() {
+export default function EditPracticeNotePage() {
   const router = useRouter()
-  const { createNote } = usePracticeNotes()
+  const params = useParams()
+  const noteId = params.noteId as string
+
+  const { note, loading, error, updateNote } = usePracticeNote(noteId)
+
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [noteType, setNoteType] = useState<NoteType>("notes")
   const [subjectId, setSubjectId] = useState<string>("")
   const [activeTab, setActiveTab] = useState("write")
   const [saving, setSaving] = useState(false)
+  const [initialized, setInitialized] = useState(false)
+
+  // Initialize form when note loads
+  useEffect(() => {
+    if (note && !initialized) {
+      setTitle(note.title)
+      setContent(note.content || "")
+      setNoteType(note.noteType)
+      setSubjectId(note.subjectId || "none")
+      setInitialized(true)
+    }
+  }, [note, initialized])
 
   const insertText = (before: string, after: string = "") => {
     const textarea = document.querySelector("textarea")
@@ -113,7 +96,6 @@ export default function NewPracticeNotePage() {
 
     setContent(newText)
 
-    // Restore focus and cursor position
     setTimeout(() => {
       textarea.focus()
       textarea.setSelectionRange(
@@ -127,7 +109,7 @@ export default function NewPracticeNotePage() {
     if (!title || !content) return
 
     setSaving(true)
-    const note = await createNote({
+    const success = await updateNote({
       title,
       content,
       noteType,
@@ -135,7 +117,7 @@ export default function NewPracticeNotePage() {
     })
     setSaving(false)
 
-    if (note) {
+    if (success) {
       router.push("/practice")
     }
   }
@@ -149,11 +131,75 @@ export default function NewPracticeNotePage() {
     { icon: Sigma, action: () => insertText("$", "$"), tooltip: "Inline Math" },
   ]
 
+  if (error) {
+    return (
+      <>
+        <Header title="Edit Note" />
+        <main className="flex-1 overflow-auto p-6">
+          <div className="max-w-6xl mx-auto">
+            <Card className="p-6">
+              <p className="text-destructive">{error}</p>
+              <Button asChild className="mt-4">
+                <Link href="/practice">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Practice Notes
+                </Link>
+              </Button>
+            </Card>
+          </div>
+        </main>
+      </>
+    )
+  }
+
+  if (loading || !initialized) {
+    return (
+      <>
+        <Header title="Edit Note" />
+        <main className="flex-1 overflow-auto p-6">
+          <div className="max-w-6xl mx-auto">
+            <Card className="mb-4">
+              <CardContent className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-2">
+                    <Skeleton className="h-4 w-16 mb-2" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                  <div>
+                    <Skeleton className="h-4 w-16 mb-2" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                  <div>
+                    <Skeleton className="h-4 w-16 mb-2" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <Skeleton className="h-[500px] w-full" />
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </>
+    )
+  }
+
   return (
     <>
-      <Header title="New Practice Note" />
+      <Header title="Edit Note" />
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-6xl mx-auto">
+          {/* Back Link */}
+          <Button variant="ghost" asChild className="mb-4">
+            <Link href="/practice">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Practice Notes
+            </Link>
+          </Button>
+
           {/* Meta Info */}
           <Card className="mb-4">
             <CardContent className="p-4">
@@ -241,20 +287,13 @@ export default function NewPracticeNotePage() {
                       ))}
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setContent(sampleContent)}
-                    >
-                      Load Example
-                    </Button>
                     <Button onClick={handleSave} disabled={!title || !content || saving}>
                       {saving ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <Save className="h-4 w-4 mr-2" />
                       )}
-                      Save Note
+                      Save Changes
                     </Button>
                   </div>
                 </div>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -13,6 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { format } from "date-fns"
 import {
   Plus,
@@ -28,15 +40,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { NoteType } from "@/types"
-
-interface PracticeNote {
-  id: string
-  title: string
-  noteType: NoteType
-  subjectId?: string
-  updatedAt: Date
-  preview: string
-}
+import { usePracticeNotes } from "@/hooks/use-practice-notes"
 
 const noteTypeConfig: Record<NoteType, { label: string; icon: React.ReactNode; color: string }> = {
   notes: { label: "Notes", icon: <FileText className="h-4 w-4" />, color: "bg-gray-100 text-gray-700" },
@@ -45,50 +49,14 @@ const noteTypeConfig: Record<NoteType, { label: string; icon: React.ReactNode; c
   summary: { label: "Summary", icon: <ScrollText className="h-4 w-4" />, color: "bg-green-100 text-green-700" },
 }
 
-const subjectConfig = {
-  physics: { name: "Physics", icon: Atom, color: "text-blue-500" },
-  maths: { name: "Mathematics", icon: Calculator, color: "text-emerald-500" },
-  russian: { name: "Russian", icon: Languages, color: "text-red-500" },
+const subjectConfig: Record<string, { name: string; icon: typeof Atom; color: string }> = {
+  "11111111-1111-1111-1111-111111111111": { name: "Physics", icon: Atom, color: "text-blue-500" },
+  "22222222-2222-2222-2222-222222222222": { name: "Mathematics", icon: Calculator, color: "text-emerald-500" },
+  "33333333-3333-3333-3333-333333333333": { name: "Russian", icon: Languages, color: "text-red-500" },
 }
 
-// Sample notes
-const sampleNotes: PracticeNote[] = [
-  {
-    id: "1",
-    title: "Quantum Physics Key Formulas",
-    noteType: "formulas",
-    subjectId: "physics",
-    updatedAt: new Date("2026-01-10"),
-    preview: "E = hf, λ = h/p, photoelectric effect equations...",
-  },
-  {
-    id: "2",
-    title: "Integration by Parts Practice",
-    noteType: "past_paper",
-    subjectId: "maths",
-    updatedAt: new Date("2026-01-09"),
-    preview: "Past paper questions on integration techniques with worked solutions...",
-  },
-  {
-    id: "3",
-    title: "Russian Essay Phrases",
-    noteType: "notes",
-    subjectId: "russian",
-    updatedAt: new Date("2026-01-08"),
-    preview: "Useful phrases for essay writing: С одной стороны... с другой стороны...",
-  },
-  {
-    id: "4",
-    title: "Electricity Summary",
-    noteType: "summary",
-    subjectId: "physics",
-    updatedAt: new Date("2026-01-07"),
-    preview: "Key concepts: Current, voltage, resistance, Ohm's law, power...",
-  },
-]
-
 export default function PracticePage() {
-  const [notes] = useState<PracticeNote[]>(sampleNotes)
+  const { notes, loading, deleteNote } = usePracticeNotes()
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [subjectFilter, setSubjectFilter] = useState<string>("all")
@@ -97,13 +65,17 @@ export default function PracticePage() {
     const matchesSearch =
       searchQuery === "" ||
       note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.preview.toLowerCase().includes(searchQuery.toLowerCase())
+      (note.content?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
 
     const matchesType = typeFilter === "all" || note.noteType === typeFilter
     const matchesSubject = subjectFilter === "all" || note.subjectId === subjectFilter
 
     return matchesSearch && matchesType && matchesSubject
   })
+
+  const handleDelete = async (noteId: string) => {
+    await deleteNote(noteId)
+  }
 
   return (
     <>
@@ -193,7 +165,22 @@ export default function PracticePage() {
           </div>
 
           {/* Notes Grid */}
-          {filteredNotes.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-6 w-48 mt-2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : filteredNotes.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <FileText className="h-16 w-16 text-muted-foreground mb-4" />
@@ -215,9 +202,7 @@ export default function PracticePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredNotes.map((note) => {
                 const typeConfig = noteTypeConfig[note.noteType]
-                const subject = note.subjectId
-                  ? subjectConfig[note.subjectId as keyof typeof subjectConfig]
-                  : null
+                const subject = note.subjectId ? subjectConfig[note.subjectId] : null
 
                 return (
                   <Card key={note.id} className="hover:shadow-md transition-shadow">
@@ -238,13 +223,34 @@ export default function PracticePage() {
                               <Pencil className="h-4 w-4" />
                             </Link>
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete note?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete &quot;{note.title}&quot;. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(note.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                       <CardTitle className="text-lg mt-2">
@@ -255,10 +261,10 @@ export default function PracticePage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                        {note.preview}
+                        {note.content?.substring(0, 150) || "No content"}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Updated {format(note.updatedAt, "MMM d, yyyy")}
+                        Updated {format(new Date(note.updatedAt), "MMM d, yyyy")}
                       </p>
                     </CardContent>
                   </Card>

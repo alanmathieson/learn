@@ -87,9 +87,9 @@ export function ExamCountdown() {
         <CardHeader>
           <CardTitle className="text-sm font-medium">All Upcoming Exams</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="max-h-[400px] overflow-y-auto">
           <div className="space-y-3">
-            {upcomingExams.slice(0, 6).map((exam, index) => (
+            {upcomingExams.map((exam, index) => (
               <div
                 key={`${exam.subject}-${exam.paper}-${index}`}
                 className="flex items-center justify-between py-2 border-b last:border-0"

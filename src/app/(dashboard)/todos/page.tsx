@@ -2,12 +2,13 @@
 
 import { useState } from "react"
 import { Header } from "@/components/layout/header"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -29,18 +30,9 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { Plus, Calendar as CalendarIcon, Trash2, Atom, Calculator, Languages } from "lucide-react"
+import { Plus, Calendar as CalendarIcon, Trash2, Atom, Calculator, Languages, Loader2 } from "lucide-react"
 import { TodoPriority } from "@/types"
-
-interface Todo {
-  id: string
-  title: string
-  description?: string
-  priority: TodoPriority
-  dueDate?: Date
-  completed: boolean
-  subjectId?: string
-}
+import { useTodos } from "@/hooks/use-todos"
 
 const priorityColors: Record<TodoPriority, string> = {
   low: "bg-gray-100 text-gray-700",
@@ -49,39 +41,13 @@ const priorityColors: Record<TodoPriority, string> = {
 }
 
 const subjects = [
-  { id: "physics", name: "Physics", icon: Atom, color: "text-blue-500" },
-  { id: "maths", name: "Mathematics", icon: Calculator, color: "text-emerald-500" },
-  { id: "russian", name: "Russian", icon: Languages, color: "text-red-500" },
+  { id: "11111111-1111-1111-1111-111111111111", name: "Physics", icon: Atom, color: "text-blue-500" },
+  { id: "22222222-2222-2222-2222-222222222222", name: "Mathematics", icon: Calculator, color: "text-emerald-500" },
+  { id: "33333333-3333-3333-3333-333333333333", name: "Russian", icon: Languages, color: "text-red-500" },
 ]
 
 export default function TodosPage() {
-  const [todos, setTodos] = useState<Todo[]>([
-    {
-      id: "1",
-      title: "Review past paper - Physics Paper 4 2024",
-      description: "Complete the structured questions section",
-      priority: "high",
-      dueDate: new Date("2026-02-15"),
-      completed: false,
-      subjectId: "physics",
-    },
-    {
-      id: "2",
-      title: "Practice integration by parts",
-      priority: "medium",
-      completed: false,
-      subjectId: "maths",
-    },
-    {
-      id: "3",
-      title: "Watch Утомлённые солнцем film",
-      description: "Take notes on key themes for essay",
-      priority: "medium",
-      dueDate: new Date("2026-02-20"),
-      completed: false,
-      subjectId: "russian",
-    },
-  ])
+  const { todos, loading, createTodo, toggleTodo, deleteTodo } = useTodos()
 
   const [newTodo, setNewTodo] = useState({
     title: "",
@@ -93,21 +59,21 @@ export default function TodosPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all")
+  const [saving, setSaving] = useState(false)
 
-  const handleAddTodo = () => {
+  const handleAddTodo = async () => {
     if (!newTodo.title.trim()) return
 
-    const todo: Todo = {
-      id: Date.now().toString(),
+    setSaving(true)
+    await createTodo({
       title: newTodo.title,
-      description: newTodo.description || undefined,
+      description: newTodo.description || null,
       priority: newTodo.priority,
-      dueDate: newTodo.dueDate,
-      completed: false,
-      subjectId: newTodo.subjectId,
-    }
+      dueDate: newTodo.dueDate || null,
+      subjectId: newTodo.subjectId || null,
+    })
+    setSaving(false)
 
-    setTodos([...todos, todo])
     setNewTodo({
       title: "",
       description: "",
@@ -118,16 +84,12 @@ export default function TodosPage() {
     setIsDialogOpen(false)
   }
 
-  const toggleTodo = (id: string) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
-    )
+  const handleToggle = async (id: string) => {
+    await toggleTodo(id)
   }
 
-  const deleteTodo = (id: string) => {
-    setTodos(todos.filter((todo) => todo.id !== id))
+  const handleDelete = async (id: string) => {
+    await deleteTodo(id)
   }
 
   const filteredTodos = todos.filter((todo) => {
@@ -225,7 +187,10 @@ export default function TodosPage() {
                           <SelectItem value="none">None</SelectItem>
                           {subjects.map((subject) => (
                             <SelectItem key={subject.id} value={subject.id}>
-                              {subject.name}
+                              <div className="flex items-center gap-2">
+                                <subject.icon className={`h-4 w-4 ${subject.color}`} />
+                                {subject.name}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -266,7 +231,12 @@ export default function TodosPage() {
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleAddTodo}>Add Task</Button>
+                  <Button onClick={handleAddTodo} disabled={!newTodo.title.trim() || saving}>
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
+                    Add Task
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -276,19 +246,31 @@ export default function TodosPage() {
           <div className="grid grid-cols-3 gap-4 mb-6">
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold">{todos.length}</div>
+                {loading ? (
+                  <Skeleton className="h-8 w-12" />
+                ) : (
+                  <div className="text-2xl font-bold">{todos.length}</div>
+                )}
                 <p className="text-sm text-muted-foreground">Total Tasks</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-blue-600">{activeTodos}</div>
+                {loading ? (
+                  <Skeleton className="h-8 w-12" />
+                ) : (
+                  <div className="text-2xl font-bold text-blue-600">{activeTodos}</div>
+                )}
                 <p className="text-sm text-muted-foreground">Active</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-green-600">{completedTodos}</div>
+                {loading ? (
+                  <Skeleton className="h-8 w-12" />
+                ) : (
+                  <div className="text-2xl font-bold text-green-600">{completedTodos}</div>
+                )}
                 <p className="text-sm text-muted-foreground">Completed</p>
               </CardContent>
             </Card>
@@ -322,7 +304,19 @@ export default function TodosPage() {
           {/* Todo List */}
           <Card>
             <CardContent className="p-0">
-              {filteredTodos.length === 0 ? (
+              {loading ? (
+                <div className="divide-y">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-start gap-4 p-4">
+                      <Skeleton className="h-5 w-5 rounded" />
+                      <div className="flex-1">
+                        <Skeleton className="h-5 w-3/4 mb-2" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : filteredTodos.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <p>No tasks found</p>
                 </div>
@@ -339,7 +333,7 @@ export default function TodosPage() {
                       >
                         <Checkbox
                           checked={todo.completed}
-                          onCheckedChange={() => toggleTodo(todo.id)}
+                          onCheckedChange={() => handleToggle(todo.id)}
                           className="mt-1"
                         />
                         <div className="flex-1 min-w-0">
@@ -371,7 +365,7 @@ export default function TodosPage() {
                             {todo.dueDate && (
                               <span className="flex items-center gap-1">
                                 <CalendarIcon className="h-3 w-3" />
-                                Due {format(todo.dueDate, "MMM d")}
+                                Due {format(new Date(todo.dueDate), "MMM d")}
                               </span>
                             )}
                           </div>
@@ -380,7 +374,7 @@ export default function TodosPage() {
                           variant="ghost"
                           size="icon"
                           className="text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteTodo(todo.id)}
+                          onClick={() => handleDelete(todo.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
