@@ -15,7 +15,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto">
           {/* Welcome Section */}
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-2">Welcome back, Tiggy!</h2>
+            <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
             <p className="text-muted-foreground">
               Track your A-Level revision progress and stay on schedule.
             </p>
