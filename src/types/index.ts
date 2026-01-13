@@ -33,6 +33,14 @@ export interface Paper {
 }
 
 // Topic Types
+export type TopicPriority = 'high' | 'medium' | 'low'
+
+export const TOPIC_PRIORITY_CONFIG: Record<TopicPriority, { label: string; color: string; bgColor: string; icon: string }> = {
+  high: { label: 'High', color: 'text-red-600', bgColor: 'bg-red-100', icon: '🔴' },
+  medium: { label: 'Medium', color: 'text-amber-600', bgColor: 'bg-amber-100', icon: '🟡' },
+  low: { label: 'Low', color: 'text-green-600', bgColor: 'bg-green-100', icon: '🟢' },
+}
+
 export interface Topic {
   id: string
   subject_id: string
@@ -43,6 +51,7 @@ export interface Topic {
   description: string | null
   order_index: number | null
   estimated_hours: number | null
+  priority: TopicPriority
   created_at: string
 }
 

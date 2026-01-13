@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react"
 import { TopicCard } from "./topic-card"
-import { ProgressStatus } from "@/types"
+import { ProgressStatus, TopicPriority } from "@/types"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,6 +20,7 @@ interface TopicNode {
   title: string
   description?: string | null
   estimatedHours?: number | null
+  priority: TopicPriority
   status: ProgressStatus
   notes?: string | null
   confidenceLevel?: number | null
@@ -31,6 +32,7 @@ interface TopicTreeProps {
   onStatusChange?: (id: string, status: ProgressStatus) => void
   onNotesChange?: (id: string, notes: string) => void
   onConfidenceChange?: (id: string, level: number) => void
+  onPriorityChange?: (id: string, priority: TopicPriority) => void
 }
 
 export function TopicTree({
@@ -38,6 +40,7 @@ export function TopicTree({
   onStatusChange,
   onNotesChange,
   onConfidenceChange,
+  onPriorityChange,
 }: TopicTreeProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -135,6 +138,7 @@ export function TopicTree({
               onStatusChange={onStatusChange}
               onNotesChange={onNotesChange}
               onConfidenceChange={onConfidenceChange}
+              onPriorityChange={onPriorityChange}
             />
           ))
         )}

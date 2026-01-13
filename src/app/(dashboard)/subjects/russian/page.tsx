@@ -7,15 +7,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Languages, BookOpen, Clock, Target, AlertCircle } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Languages, BookOpen, Clock, Target } from "lucide-react"
 import { useTopics } from "@/hooks/use-topics"
 import { useSubject } from "@/hooks/use-subject"
 
 const RUSSIAN_SUBJECT_ID = "33333333-3333-3333-3333-333333333333"
 
 export default function RussianPage() {
-  const { topics, loading, error, updateStatus, updateNotes, updateConfidence } = useTopics({
+  const { topics, loading, error, updateStatus, updateNotes, updateConfidence, updatePriority } = useTopics({
     subjectId: RUSSIAN_SUBJECT_ID,
   })
   const { stats } = useSubject(RUSSIAN_SUBJECT_ID)
@@ -108,14 +107,6 @@ export default function RussianPage() {
             </CardContent>
           </Card>
 
-          <Alert className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Literary Works Pending</AlertTitle>
-            <AlertDescription>
-              The literary works for Paper 2 need to be confirmed. Please let us know which texts/films have been chosen.
-            </AlertDescription>
-          </Alert>
-
           {loading ? (
             <div className="space-y-4">
               <Skeleton className="h-12 w-full" />
@@ -136,6 +127,7 @@ export default function RussianPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
 
@@ -149,6 +141,7 @@ export default function RussianPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
 
@@ -162,6 +155,7 @@ export default function RussianPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
 
@@ -175,6 +169,7 @@ export default function RussianPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
 
@@ -188,6 +183,7 @@ export default function RussianPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
             </>

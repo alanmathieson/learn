@@ -14,7 +14,7 @@ import { useSubject } from "@/hooks/use-subject"
 const PHYSICS_SUBJECT_ID = "11111111-1111-1111-1111-111111111111"
 
 export default function PhysicsPage() {
-  const { topics, loading, error, updateStatus, updateNotes, updateConfidence } = useTopics({
+  const { topics, loading, error, updateStatus, updateNotes, updateConfidence, updatePriority } = useTopics({
     subjectId: PHYSICS_SUBJECT_ID,
   })
   const { subject, stats } = useSubject(PHYSICS_SUBJECT_ID)
@@ -113,6 +113,7 @@ export default function PhysicsPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
 
@@ -130,6 +131,7 @@ export default function PhysicsPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
             </>

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useUser } from "@clerk/nextjs"
 import { createClient } from "@/lib/supabase/client"
-import { Topic, TopicProgress, ProgressStatus } from "@/types"
+import { Topic, TopicProgress, ProgressStatus, TopicPriority } from "@/types"
 
 export interface TopicNode {
   id: string
@@ -11,6 +11,7 @@ export interface TopicNode {
   title: string
   description?: string | null
   estimatedHours?: number | null
+  priority: TopicPriority
   status: ProgressStatus
   notes?: string | null
   confidenceLevel?: number | null
@@ -107,6 +108,7 @@ export function useTopics({ subjectId }: UseTopicsOptions) {
           title: topic.title,
           description: topic.description,
           estimatedHours: topic.estimated_hours,
+          priority: topic.priority || "medium",
           status: progress?.status || "not_started",
           notes: progress?.notes || null,
           confidenceLevel: progress?.confidence_level || null,
@@ -223,6 +225,26 @@ export function useTopics({ subjectId }: UseTopicsOptions) {
     [supabaseUserId]
   )
 
+  // Update priority (stored on the topic itself, not progress)
+  const updatePriority = useCallback(
+    async (topicId: string, priority: TopicPriority) => {
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from("topics")
+        .update({ priority })
+        .eq("id", topicId)
+
+      if (error) {
+        console.error("Error updating priority:", error)
+        return
+      }
+
+      setTopics((prev) => updateTopicInTree(prev, topicId, { priority }))
+    },
+    []
+  )
+
   return {
     topics,
     loading,
@@ -230,6 +252,7 @@ export function useTopics({ subjectId }: UseTopicsOptions) {
     updateStatus,
     updateNotes,
     updateConfidence,
+    updatePriority,
   }
 }
 

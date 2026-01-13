@@ -17,8 +17,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { ProgressBadge } from "./progress-badge"
-import { ProgressStatus, PROGRESS_STATUS_CONFIG } from "@/types"
-import { ChevronDown, ChevronRight, Clock, Save, Star } from "lucide-react"
+import { ProgressStatus, PROGRESS_STATUS_CONFIG, TopicPriority, TOPIC_PRIORITY_CONFIG } from "@/types"
+import { ChevronDown, ChevronRight, Clock, Save, Star, AlertTriangle } from "lucide-react"
 
 interface TopicCardProps {
   id: string
@@ -26,6 +26,7 @@ interface TopicCardProps {
   title: string
   description?: string | null
   estimatedHours?: number | null
+  priority: TopicPriority
   status: ProgressStatus
   notes?: string | null
   confidenceLevel?: number | null
@@ -33,6 +34,7 @@ interface TopicCardProps {
   onStatusChange?: (id: string, status: ProgressStatus) => void
   onNotesChange?: (id: string, notes: string) => void
   onConfidenceChange?: (id: string, level: number) => void
+  onPriorityChange?: (id: string, priority: TopicPriority) => void
   depth?: number
 }
 
@@ -42,6 +44,7 @@ export function TopicCard({
   title,
   description,
   estimatedHours,
+  priority,
   status,
   notes,
   confidenceLevel,
@@ -49,6 +52,7 @@ export function TopicCard({
   onStatusChange,
   onNotesChange,
   onConfidenceChange,
+  onPriorityChange,
   depth = 0,
 }: TopicCardProps) {
   const [isOpen, setIsOpen] = useState(depth === 0)
@@ -66,6 +70,10 @@ export function TopicCard({
 
   const handleConfidenceChange = (level: number) => {
     onConfidenceChange?.(id, level)
+  }
+
+  const handlePriorityChange = (newPriority: string) => {
+    onPriorityChange?.(id, newPriority as TopicPriority)
   }
 
   return (
@@ -113,6 +121,26 @@ export function TopicCard({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  <Select value={priority} onValueChange={handlePriorityChange}>
+                    <SelectTrigger className="w-[110px]">
+                      <SelectValue>
+                        <div className="flex items-center gap-1.5">
+                          <AlertTriangle className={`h-3.5 w-3.5 ${TOPIC_PRIORITY_CONFIG[priority].color}`} />
+                          <span className="text-sm">{TOPIC_PRIORITY_CONFIG[priority].label}</span>
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TOPIC_PRIORITY_CONFIG).map(([key, config]) => (
+                        <SelectItem key={key} value={key}>
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className={`h-3.5 w-3.5 ${config.color}`} />
+                            {config.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Select value={status} onValueChange={handleStatusChange}>
                     <SelectTrigger className="w-[160px]">
                       <SelectValue>
@@ -206,6 +234,7 @@ export function TopicCard({
               onStatusChange={onStatusChange}
               onNotesChange={onNotesChange}
               onConfidenceChange={onConfidenceChange}
+              onPriorityChange={onPriorityChange}
             />
           ))}
         </div>

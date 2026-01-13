@@ -14,7 +14,7 @@ import { useSubject } from "@/hooks/use-subject"
 const MATHS_SUBJECT_ID = "22222222-2222-2222-2222-222222222222"
 
 export default function MathsPage() {
-  const { topics, loading, error, updateStatus, updateNotes, updateConfidence } = useTopics({
+  const { topics, loading, error, updateStatus, updateNotes, updateConfidence, updatePriority } = useTopics({
     subjectId: MATHS_SUBJECT_ID,
   })
   const { stats } = useSubject(MATHS_SUBJECT_ID)
@@ -124,6 +124,7 @@ export default function MathsPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
 
@@ -138,6 +139,7 @@ export default function MathsPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
 
@@ -152,6 +154,7 @@ export default function MathsPage() {
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
+                  onPriorityChange={updatePriority}
                 />
               </div>
             </>
