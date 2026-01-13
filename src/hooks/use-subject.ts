@@ -51,19 +51,7 @@ export function useSubject(subjectId: string) {
 
       setSubject(subjectData)
 
-      // Get Supabase user ID
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("clerk_id", user.id)
-        .single()
-
-      if (!userData) {
-        setLoading(false)
-        return
-      }
-
-      // Fetch topics and progress for stats
+      // Fetch topics for stats
       const { data: topics } = await supabase
         .from("topics")
         .select("id, parent_id")
@@ -79,17 +67,26 @@ export function useSubject(subjectId: string) {
       const leafTopics = topics.filter(t => !parentIds.has(t.id))
       const leafTopicIds = leafTopics.map(t => t.id)
 
-      // Fetch progress for leaf topics
+      // Fetch ALL progress for leaf topics (global - not filtered by user)
       const { data: progress } = await supabase
         .from("topic_progress")
         .select("topic_id, status")
-        .eq("user_id", userData.id)
         .in("topic_id", leafTopicIds)
 
+      // Create a map to dedupe by topic_id (in case multiple users have set progress)
+      const progressMap = new Map<string, string>()
+      if (progress) {
+        for (const p of progress) {
+          if (!progressMap.has(p.topic_id)) {
+            progressMap.set(p.topic_id, p.status)
+          }
+        }
+      }
+
       const completedStatuses = ["confident", "mastered"]
-      const completed = progress?.filter(p =>
-        completedStatuses.includes(p.status)
-      ).length || 0
+      const completed = Array.from(progressMap.values()).filter(status =>
+        completedStatuses.includes(status)
+      ).length
 
       setStats({
         totalTopics: leafTopics.length,
@@ -138,14 +135,7 @@ export function useSubjects() {
 
       setSubjects(subjectsData || [])
 
-      // Get Supabase user ID
-      const { data: userData } = await supabase
-        .from("users")
-        .select("id")
-        .eq("clerk_id", user.id)
-        .single()
-
-      if (!userData || !subjectsData) {
+      if (!subjectsData) {
         setLoading(false)
         return
       }
@@ -160,13 +150,20 @@ export function useSubjects() {
         return
       }
 
-      // Fetch all progress
+      // Fetch ALL progress (global - not filtered by user)
       const { data: allProgress } = await supabase
         .from("topic_progress")
         .select("topic_id, status")
-        .eq("user_id", userData.id)
 
-      const progressMap = new Map(allProgress?.map(p => [p.topic_id, p.status]) || [])
+      // Create a map to dedupe by topic_id (in case multiple users have set progress)
+      const progressMap = new Map<string, string>()
+      if (allProgress) {
+        for (const p of allProgress) {
+          if (!progressMap.has(p.topic_id)) {
+            progressMap.set(p.topic_id, p.status)
+          }
+        }
+      }
 
       // Calculate stats per subject
       const newStatsMap: Record<string, SubjectStats> = {}

@@ -28,7 +28,7 @@ export function useTopics({ subjectId }: UseTopicsOptions) {
   const [error, setError] = useState<string | null>(null)
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
 
-  // Fetch the Supabase user ID from Clerk ID
+  // Fetch the Supabase user ID from Clerk ID (needed for creating new progress records)
   useEffect(() => {
     async function fetchSupabaseUser() {
       if (!user?.id) return
@@ -52,11 +52,9 @@ export function useTopics({ subjectId }: UseTopicsOptions) {
     fetchSupabaseUser()
   }, [user?.id])
 
-  // Fetch topics with progress
+  // Fetch topics with progress (global - all progress visible to all users)
   useEffect(() => {
     async function fetchTopics() {
-      if (!supabaseUserId) return
-
       setLoading(true)
       const supabase = createClient()
 
@@ -74,23 +72,25 @@ export function useTopics({ subjectId }: UseTopicsOptions) {
         return
       }
 
-      // Fetch progress for these topics
+      // Fetch ALL progress for these topics (global - not filtered by user)
       const topicIds = topicsData.map((t) => t.id)
       const { data: progressData, error: progressError } = await supabase
         .from("topic_progress")
         .select("*")
-        .eq("user_id", supabaseUserId)
         .in("topic_id", topicIds)
 
       if (progressError) {
         console.error("Error fetching progress:", progressError)
       }
 
-      // Create a map of progress by topic ID
+      // Create a map of progress by topic ID (take the first/most recent one if multiple exist)
       const progressMap = new Map<string, TopicProgress>()
       if (progressData) {
         for (const p of progressData) {
-          progressMap.set(p.topic_id, p)
+          // Only set if not already set (first one wins - they should all be the same in global model)
+          if (!progressMap.has(p.topic_id)) {
+            progressMap.set(p.topic_id, p)
+          }
         }
       }
 
@@ -130,9 +130,9 @@ export function useTopics({ subjectId }: UseTopicsOptions) {
     }
 
     fetchTopics()
-  }, [subjectId, supabaseUserId])
+  }, [subjectId])
 
-  // Update status
+  // Update status (uses current user's ID for the record, but visible to all)
   const updateStatus = useCallback(
     async (topicId: string, status: ProgressStatus) => {
       if (!supabaseUserId) return

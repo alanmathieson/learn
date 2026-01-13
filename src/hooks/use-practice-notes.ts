@@ -39,7 +39,7 @@ export function usePracticeNotes() {
   const [error, setError] = useState<string | null>(null)
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
 
-  // Fetch the Supabase user ID from Clerk ID
+  // Fetch the Supabase user ID from Clerk ID (needed for creating new records)
   useEffect(() => {
     async function fetchSupabaseUser() {
       if (!user?.id) return
@@ -64,18 +64,15 @@ export function usePracticeNotes() {
     fetchSupabaseUser()
   }, [user?.id])
 
-  // Fetch notes
+  // Fetch ALL notes (global - not filtered by user)
   useEffect(() => {
     async function fetchNotes() {
-      if (!supabaseUserId) return
-
       setLoading(true)
       const supabase = createClient()
 
       const { data, error: fetchError } = await supabase
         .from("practice_notes")
         .select("*")
-        .eq("user_id", supabaseUserId)
         .order("updated_at", { ascending: false })
 
       if (fetchError) {
@@ -101,7 +98,7 @@ export function usePracticeNotes() {
     }
 
     fetchNotes()
-  }, [supabaseUserId])
+  }, [])
 
   // Create note
   const createNote = useCallback(
@@ -145,11 +142,9 @@ export function usePracticeNotes() {
     [supabaseUserId]
   )
 
-  // Update note
+  // Update note (any user can update any note)
   const updateNote = useCallback(
     async (noteId: string, input: UpdateNoteInput): Promise<boolean> => {
-      if (!supabaseUserId) return false
-
       const supabase = createClient()
 
       const updateData: Record<string, unknown> = {}
@@ -163,7 +158,6 @@ export function usePracticeNotes() {
         .from("practice_notes")
         .update(updateData)
         .eq("id", noteId)
-        .eq("user_id", supabaseUserId)
         .select()
         .single()
 
@@ -190,21 +184,18 @@ export function usePracticeNotes() {
 
       return true
     },
-    [supabaseUserId]
+    []
   )
 
-  // Delete note
+  // Delete note (any user can delete any note)
   const deleteNote = useCallback(
     async (noteId: string): Promise<boolean> => {
-      if (!supabaseUserId) return false
-
       const supabase = createClient()
 
       const { error } = await supabase
         .from("practice_notes")
         .delete()
         .eq("id", noteId)
-        .eq("user_id", supabaseUserId)
 
       if (error) {
         console.error("Error deleting note:", error)
@@ -214,7 +205,7 @@ export function usePracticeNotes() {
       setNotes((prev) => prev.filter((note) => note.id !== noteId))
       return true
     },
-    [supabaseUserId]
+    []
   )
 
   return {
@@ -228,7 +219,7 @@ export function usePracticeNotes() {
   }
 }
 
-// Hook for fetching a single note
+// Hook for fetching a single note (global - any user can view any note)
 export function usePracticeNote(noteId: string) {
   const { user } = useUser()
   const [note, setNote] = useState<PracticeNote | null>(null)
@@ -236,7 +227,7 @@ export function usePracticeNote(noteId: string) {
   const [error, setError] = useState<string | null>(null)
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
 
-  // Fetch the Supabase user ID from Clerk ID
+  // Fetch the Supabase user ID from Clerk ID (needed for creating new records)
   useEffect(() => {
     async function fetchSupabaseUser() {
       if (!user?.id) return
@@ -261,10 +252,10 @@ export function usePracticeNote(noteId: string) {
     fetchSupabaseUser()
   }, [user?.id])
 
-  // Fetch note
+  // Fetch note (global - not filtered by user)
   useEffect(() => {
     async function fetchNote() {
-      if (!supabaseUserId || !noteId) return
+      if (!noteId) return
 
       setLoading(true)
       const supabase = createClient()
@@ -273,7 +264,6 @@ export function usePracticeNote(noteId: string) {
         .from("practice_notes")
         .select("*")
         .eq("id", noteId)
-        .eq("user_id", supabaseUserId)
         .single()
 
       if (fetchError) {
@@ -297,12 +287,12 @@ export function usePracticeNote(noteId: string) {
     }
 
     fetchNote()
-  }, [noteId, supabaseUserId])
+  }, [noteId])
 
-  // Update note
+  // Update note (any user can update any note)
   const updateNote = useCallback(
     async (input: UpdateNoteInput): Promise<boolean> => {
-      if (!supabaseUserId || !noteId) return false
+      if (!noteId) return false
 
       const supabase = createClient()
 
@@ -317,7 +307,6 @@ export function usePracticeNote(noteId: string) {
         .from("practice_notes")
         .update(updateData)
         .eq("id", noteId)
-        .eq("user_id", supabaseUserId)
         .select()
         .single()
 
@@ -339,7 +328,7 @@ export function usePracticeNote(noteId: string) {
 
       return true
     },
-    [supabaseUserId, noteId]
+    [noteId]
   )
 
   return {
