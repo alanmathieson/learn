@@ -8,58 +8,71 @@ import { Calendar } from "@/components/ui/calendar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { format } from "date-fns"
-import { CalendarOff, Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { format, parseISO, addDays } from "date-fns"
+import { CalendarOff, Plus, Trash2, ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
-
-interface BlockedDate {
-  id: string
-  date: Date
-  reason?: string
-}
+import { useBlockedDates } from "@/hooks/use-blocked-dates"
 
 export default function BlockedDatesPage() {
-  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([
-    { id: "1", date: new Date("2026-02-14"), reason: "Half term" },
-    { id: "2", date: new Date("2026-02-15"), reason: "Half term" },
-    { id: "3", date: new Date("2026-02-16"), reason: "Half term" },
-    { id: "4", date: new Date("2026-04-10"), reason: "Easter break" },
-    { id: "5", date: new Date("2026-04-11"), reason: "Easter break" },
-    { id: "6", date: new Date("2026-04-12"), reason: "Easter break" },
-  ])
+  const {
+    blockedDates,
+    loading,
+    error,
+    createBlockedDate,
+    deleteBlockedDate,
+  } = useBlockedDates()
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [reason, setReason] = useState("")
+  const [isAdding, setIsAdding] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const handleAddBlockedDate = () => {
+  const handleAddBlockedDate = async () => {
     if (!selectedDate) return
 
-    const newBlocked: BlockedDate = {
-      id: Date.now().toString(),
+    setIsAdding(true)
+    await createBlockedDate({
       date: selectedDate,
       reason: reason || undefined,
-    }
-
-    setBlockedDates([...blockedDates, newBlocked])
+    })
     setSelectedDate(undefined)
     setReason("")
+    setIsAdding(false)
   }
 
-  const handleRemoveBlockedDate = (id: string) => {
-    setBlockedDates(blockedDates.filter((d) => d.id !== id))
+  const handleRemoveBlockedDate = async (id: string) => {
+    setDeletingId(id)
+    await deleteBlockedDate(id)
+    setDeletingId(null)
   }
 
-  const blockedDateSet = new Set(
-    blockedDates.map((d) => format(d.date, "yyyy-MM-dd"))
-  )
+  const blockedDateSet = new Set(blockedDates.map((d) => d.date))
 
   // Group blocked dates by month
   const groupedDates = blockedDates.reduce((acc, date) => {
-    const monthKey = format(date.date, "MMMM yyyy")
+    const monthKey = format(parseISO(date.date), "MMMM yyyy")
     if (!acc[monthKey]) acc[monthKey] = []
     acc[monthKey].push(date)
     return acc
-  }, {} as Record<string, BlockedDate[]>)
+  }, {} as Record<string, typeof blockedDates>)
+
+  if (error) {
+    return (
+      <>
+        <Header title="Blocked Dates" />
+        <main className="flex-1 overflow-auto p-6">
+          <div className="max-w-4xl mx-auto">
+            <Card className="border-destructive">
+              <CardContent className="pt-6">
+                <p className="text-destructive">{error}</p>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </>
+    )
+  }
 
   return (
     <>
@@ -95,7 +108,7 @@ export default function BlockedDatesPage() {
                   selected={selectedDate}
                   onSelect={setSelectedDate}
                   modifiers={{
-                    blocked: blockedDates.map((d) => d.date),
+                    blocked: blockedDates.map((d) => parseISO(d.date)),
                   }}
                   modifiersStyles={{
                     blocked: {
@@ -131,11 +144,20 @@ export default function BlockedDatesPage() {
 
                     <Button
                       onClick={handleAddBlockedDate}
-                      disabled={blockedDateSet.has(format(selectedDate, "yyyy-MM-dd"))}
+                      disabled={blockedDateSet.has(format(selectedDate, "yyyy-MM-dd")) || isAdding}
                       className="w-full"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Block This Date
+                      {isAdding ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Block This Date
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
@@ -154,7 +176,16 @@ export default function BlockedDatesPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {blockedDates.length === 0 ? (
+                {loading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-8 w-32" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  </div>
+                ) : blockedDates.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <CalendarOff className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No dates blocked yet</p>
@@ -173,7 +204,7 @@ export default function BlockedDatesPage() {
                           </h4>
                           <div className="space-y-2">
                             {dates
-                              .sort((a, b) => a.date.getTime() - b.date.getTime())
+                              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                               .map((blocked) => (
                                 <div
                                   key={blocked.id}
@@ -181,7 +212,7 @@ export default function BlockedDatesPage() {
                                 >
                                   <div>
                                     <p className="font-medium">
-                                      {format(blocked.date, "EEEE, d")}
+                                      {format(parseISO(blocked.date), "EEEE, d")}
                                     </p>
                                     {blocked.reason && (
                                       <p className="text-sm text-muted-foreground">
@@ -194,8 +225,13 @@ export default function BlockedDatesPage() {
                                     size="icon"
                                     className="text-muted-foreground hover:text-destructive"
                                     onClick={() => handleRemoveBlockedDate(blocked.id)}
+                                    disabled={deletingId === blocked.id}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    {deletingId === blocked.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
                                   </Button>
                                 </div>
                               ))}
@@ -208,28 +244,6 @@ export default function BlockedDatesPage() {
             </Card>
           </div>
 
-          {/* Quick Add Buttons */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Quick Add</CardTitle>
-              <CardDescription>
-                Add common blocked periods quickly
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm">
-                  February Half Term (16-20 Feb)
-                </Button>
-                <Button variant="outline" size="sm">
-                  Easter Break (6-17 Apr)
-                </Button>
-                <Button variant="outline" size="sm">
-                  May Bank Holidays
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </main>
     </>

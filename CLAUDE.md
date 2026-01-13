@@ -21,8 +21,13 @@
 - **Syllabus/Topics** - `useTopics` hook, `useSubject`/`useSubjects` hooks
 - **Practice Notes** - `usePracticeNotes`, `usePracticeNote` hooks (full CRUD)
 - **Todos** - `useTodos` hook (full CRUD)
+- **Blocked Dates** - `useBlockedDates` hook (full CRUD)
 - **Exam Countdown** - Hardcoded (exam dates don't change)
 - **Dashboard Progress** - Uses `useSubjects` for real stats
+
+## Global Data Model
+
+All data in this application is **global/shared** - every user sees the same data. This is intentional as the app is designed for a single student (Tiggy) with her tutor. There is no per-user data isolation. Blocked dates, todos, practice notes, and topic progress are all shared across all logged-in users.
 
 ## RLS Policies
 
