@@ -41,7 +41,7 @@ export function useTodos() {
   const [error, setError] = useState<string | null>(null)
   const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null)
 
-  // Fetch the Supabase user ID from Clerk ID
+  // Fetch the Supabase user ID from Clerk ID (needed for creating new records)
   useEffect(() => {
     async function fetchSupabaseUser() {
       if (!user?.id) return
@@ -66,18 +66,15 @@ export function useTodos() {
     fetchSupabaseUser()
   }, [user?.id])
 
-  // Fetch todos
+  // Fetch ALL todos (global - not filtered by user)
   useEffect(() => {
     async function fetchTodos() {
-      if (!supabaseUserId) return
-
       setLoading(true)
       const supabase = createClient()
 
       const { data, error: fetchError } = await supabase
         .from("adhoc_todos")
         .select("*")
-        .eq("user_id", supabaseUserId)
         .order("created_at", { ascending: false })
 
       if (fetchError) {
@@ -104,7 +101,7 @@ export function useTodos() {
     }
 
     fetchTodos()
-  }, [supabaseUserId])
+  }, [])
 
   // Create todo
   const createTodo = useCallback(
@@ -149,11 +146,9 @@ export function useTodos() {
     [supabaseUserId]
   )
 
-  // Update todo
+  // Update todo (any user can update any todo)
   const updateTodo = useCallback(
     async (todoId: string, input: UpdateTodoInput): Promise<boolean> => {
-      if (!supabaseUserId) return false
-
       const supabase = createClient()
 
       const updateData: Record<string, unknown> = {}
@@ -173,7 +168,6 @@ export function useTodos() {
         .from("adhoc_todos")
         .update(updateData)
         .eq("id", todoId)
-        .eq("user_id", supabaseUserId)
         .select()
         .single()
 
@@ -201,7 +195,7 @@ export function useTodos() {
 
       return true
     },
-    [supabaseUserId]
+    []
   )
 
   // Toggle todo completion
@@ -215,18 +209,15 @@ export function useTodos() {
     [todos, updateTodo]
   )
 
-  // Delete todo
+  // Delete todo (any user can delete any todo)
   const deleteTodo = useCallback(
     async (todoId: string): Promise<boolean> => {
-      if (!supabaseUserId) return false
-
       const supabase = createClient()
 
       const { error } = await supabase
         .from("adhoc_todos")
         .delete()
         .eq("id", todoId)
-        .eq("user_id", supabaseUserId)
 
       if (error) {
         console.error("Error deleting todo:", error)
@@ -236,7 +227,7 @@ export function useTodos() {
       setTodos((prev) => prev.filter((todo) => todo.id !== todoId))
       return true
     },
-    [supabaseUserId]
+    []
   )
 
   return {
