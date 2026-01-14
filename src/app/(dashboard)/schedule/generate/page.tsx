@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
+import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -17,9 +17,6 @@ import {
   ArrowRight,
   CalendarPlus,
   Clock,
-  Atom,
-  Calculator,
-  Languages,
   Check,
   Loader2,
   AlertCircle,
@@ -33,9 +30,8 @@ import { generateSchedule } from "@/lib/schedule-generator"
 
 const steps = [
   { id: 1, title: "Study Hours", description: "Set your weekly availability" },
-  { id: 2, title: "Subject Balance", description: "Adjust time per subject" },
-  { id: 3, title: "Preferences", description: "Fine-tune your schedule" },
-  { id: 4, title: "Generate", description: "Review and create" },
+  { id: 2, title: "Preferences", description: "Fine-tune your schedule" },
+  { id: 3, title: "Generate", description: "Review and create" },
 ]
 
 const daysOfWeek = [
@@ -74,14 +70,7 @@ export default function GenerateSchedulePage() {
   // Step 1: Study Hours
   const [weeklyHours, setWeeklyHours] = useState<Record<string, number>>(DEFAULT_WEEKLY_HOURS)
 
-  // Step 2: Subject Balance (percentages)
-  const [subjectBalance, setSubjectBalance] = useState({
-    physics: 33,
-    maths: 33,
-    russian: 34,
-  })
-
-  // Step 3: Preferences
+  // Step 2: Preferences
   const [sessionDuration, setSessionDuration] = useState(60)
   const [includeReviews, setIncludeReviews] = useState(true)
   const [bufferBeforeExams, setBufferBeforeExams] = useState(5)
@@ -93,7 +82,6 @@ export default function GenerateSchedulePage() {
       if (stored) {
         const parsed = JSON.parse(stored)
         if (parsed.weeklyHours) setWeeklyHours(parsed.weeklyHours)
-        if (parsed.subjectBalance) setSubjectBalance(parsed.subjectBalance)
         if (parsed.sessionDuration) setSessionDuration(parsed.sessionDuration)
         if (typeof parsed.includeReviews === "boolean") setIncludeReviews(parsed.includeReviews)
         if (parsed.bufferBeforeExams) setBufferBeforeExams(parsed.bufferBeforeExams)
@@ -108,7 +96,6 @@ export default function GenerateSchedulePage() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         weeklyHours,
-        subjectBalance,
         sessionDuration,
         includeReviews,
         bufferBeforeExams,
@@ -116,7 +103,7 @@ export default function GenerateSchedulePage() {
     } catch (e) {
       console.error("Error saving schedule preferences:", e)
     }
-  }, [weeklyHours, subjectBalance, sessionDuration, includeReviews, bufferBeforeExams])
+  }, [weeklyHours, sessionDuration, includeReviews, bufferBeforeExams])
 
   const totalWeeklyHours = Object.values(weeklyHours).reduce((a, b) => a + b, 0)
   const dataLoading = topicsLoading || blockedLoading
@@ -143,7 +130,6 @@ export default function GenerateSchedulePage() {
         blockedDates.map((d) => d.date),
         {
           weeklyHours,
-          subjectBalance,
           sessionDuration,
           includeReviews,
           bufferDays: bufferBeforeExams,
@@ -179,21 +165,6 @@ export default function GenerateSchedulePage() {
       setGenerationError("An error occurred while generating the schedule.")
       setIsGenerating(false)
     }
-  }
-
-  const updateSubjectBalance = (subject: string, value: number) => {
-    const others = Object.entries(subjectBalance).filter(([k]) => k !== subject)
-    const remaining = 100 - value
-    const perOther = Math.floor(remaining / others.length)
-
-    setSubjectBalance({
-      ...subjectBalance,
-      [subject]: value,
-      ...Object.fromEntries(others.map(([k], i) => [
-        k,
-        i === others.length - 1 ? remaining - (perOther * (others.length - 1)) : perOther
-      ]))
-    })
   }
 
   return (
@@ -296,77 +267,6 @@ export default function GenerateSchedulePage() {
 
               {currentStep === 2 && (
                 <div className="space-y-6">
-                  <p className="text-sm text-muted-foreground">
-                    Adjust how your study time is split between subjects.
-                    The schedule will weight topics based on these percentages.
-                  </p>
-
-                  <div className="space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Atom className="h-5 w-5 text-blue-500" />
-                          <Label>Physics</Label>
-                        </div>
-                        <span className="font-medium">{subjectBalance.physics}%</span>
-                      </div>
-                      <Slider
-                        value={[subjectBalance.physics]}
-                        onValueChange={([v]) => updateSubjectBalance("physics", v)}
-                        max={60}
-                        min={20}
-                        step={1}
-                        className="[&_[role=slider]]:bg-blue-500"
-                      />
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Calculator className="h-5 w-5 text-emerald-500" />
-                          <Label>Mathematics</Label>
-                        </div>
-                        <span className="font-medium">{subjectBalance.maths}%</span>
-                      </div>
-                      <Slider
-                        value={[subjectBalance.maths]}
-                        onValueChange={([v]) => updateSubjectBalance("maths", v)}
-                        max={60}
-                        min={20}
-                        step={1}
-                        className="[&_[role=slider]]:bg-emerald-500"
-                      />
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Languages className="h-5 w-5 text-red-500" />
-                          <Label>Russian</Label>
-                        </div>
-                        <span className="font-medium">{subjectBalance.russian}%</span>
-                      </div>
-                      <Slider
-                        value={[subjectBalance.russian]}
-                        onValueChange={([v]) => updateSubjectBalance("russian", v)}
-                        max={60}
-                        min={20}
-                        step={1}
-                        className="[&_[role=slider]]:bg-red-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 pt-4">
-                    <div className="flex-1 h-4 bg-blue-500 rounded-l" style={{ width: `${subjectBalance.physics}%` }} />
-                    <div className="flex-1 h-4 bg-emerald-500" style={{ width: `${subjectBalance.maths}%` }} />
-                    <div className="flex-1 h-4 bg-red-500 rounded-r" style={{ width: `${subjectBalance.russian}%` }} />
-                  </div>
-                </div>
-              )}
-
-              {currentStep === 3 && (
-                <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
@@ -427,7 +327,7 @@ export default function GenerateSchedulePage() {
                 </div>
               )}
 
-              {currentStep === 4 && (
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   {dataLoading ? (
                     <div className="space-y-4">
@@ -456,27 +356,6 @@ export default function GenerateSchedulePage() {
                           <span>{topics.filter(t => t.status !== "confident" && t.status !== "mastered" && (includeReviews || t.status !== "needs_review")).length}</span>
                           <span className="text-muted-foreground">Blocked Dates:</span>
                           <span>{blockedDates.length}</span>
-                        </div>
-                      </div>
-
-                      <div className="bg-muted p-4 rounded-lg space-y-3">
-                        <h4 className="font-medium">Subject Distribution</h4>
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <Atom className="h-6 w-6 mx-auto text-blue-500 mb-1" />
-                            <p className="font-medium">{subjectBalance.physics}%</p>
-                            <p className="text-xs text-muted-foreground">Physics</p>
-                          </div>
-                          <div>
-                            <Calculator className="h-6 w-6 mx-auto text-emerald-500 mb-1" />
-                            <p className="font-medium">{subjectBalance.maths}%</p>
-                            <p className="text-xs text-muted-foreground">Maths</p>
-                          </div>
-                          <div>
-                            <Languages className="h-6 w-6 mx-auto text-red-500 mb-1" />
-                            <p className="font-medium">{subjectBalance.russian}%</p>
-                            <p className="text-xs text-muted-foreground">Russian</p>
-                          </div>
                         </div>
                       </div>
 
@@ -525,7 +404,7 @@ export default function GenerateSchedulePage() {
               </Button>
             )}
 
-            {currentStep < 4 ? (
+            {currentStep < 3 ? (
               <Button onClick={() => setCurrentStep(currentStep + 1)}>
                 Next
                 <ArrowRight className="h-4 w-4 ml-2" />

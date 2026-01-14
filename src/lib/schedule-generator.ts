@@ -1,4 +1,4 @@
-import { addDays, format, isBefore, parseISO, isAfter, startOfDay } from "date-fns"
+import { addDays, format, isBefore, parseISO, isAfter, startOfDay, differenceInDays } from "date-fns"
 import { ProgressStatus, TopicPriority } from "@/types"
 
 // Subject IDs
@@ -24,6 +24,13 @@ const PAPER_DEADLINES: Record<string, { examDate: string; subjectId: string }> =
   "a3333333-3333-3333-3333-333333333331": { examDate: "2026-06-01", subjectId: SUBJECT_IDS.russian }, // Paper 1 - Listening & Reading
   "a3333333-3333-3333-3333-333333333332": { examDate: "2026-06-08", subjectId: SUBJECT_IDS.russian }, // Paper 2 - Written Response
   "a3333333-3333-3333-3333-333333333333": { examDate: "2026-04-15", subjectId: SUBJECT_IDS.russian }, // Paper 3 - Speaking
+}
+
+// Last exam per subject (for pacing calculation)
+const SUBJECT_LAST_EXAM: Record<string, string> = {
+  [SUBJECT_IDS.physics]: "2026-06-03", // Paper 1
+  [SUBJECT_IDS.maths]: "2026-06-18",   // Paper 3
+  [SUBJECT_IDS.russian]: "2026-06-08", // Paper 2
 }
 
 // First exam per subject (for topics without paper_id)
@@ -61,7 +68,6 @@ export interface TopicForScheduling {
 
 export interface SchedulePreferences {
   weeklyHours: Record<string, number> // mon, tue, wed, etc.
-  subjectBalance: Record<string, number> // physics, maths, russian percentages
   sessionDuration: number // minutes
   includeReviews: boolean
   bufferDays: number
@@ -73,6 +79,22 @@ export interface GeneratedSession {
   scheduled_date: string
   duration_minutes: number
   notes: string | null
+}
+
+interface TopicWithSessions extends TopicForScheduling {
+  sessionsNeeded: number
+  sessionsScheduled: number
+  deadline: Date
+}
+
+interface SubjectPacing {
+  id: string
+  key: string
+  totalSessions: number
+  scheduledSessions: number
+  endDate: Date
+  sessionsPerDay: number
+  accumulatedDebt: number // Tracks fractional sessions owed
 }
 
 /**
@@ -94,20 +116,6 @@ function getTopicDeadline(topic: TopicForScheduling, bufferDays: number): Date {
 }
 
 /**
- * Sort topics by status, then priority
- */
-function sortTopics(topics: TopicForScheduling[]): TopicForScheduling[] {
-  return [...topics].sort((a, b) => {
-    // First by status
-    const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]
-    if (statusDiff !== 0) return statusDiff
-
-    // Then by priority
-    return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
-  })
-}
-
-/**
  * Get day of week key from date
  */
 function getDayKey(date: Date): string {
@@ -116,7 +124,68 @@ function getDayKey(date: Date): string {
 }
 
 /**
- * Generate a study schedule
+ * Get the best topic from a subject for the current date
+ * Prioritizes by: deadline urgency, status, priority
+ */
+function getBestTopicForSubject(
+  topics: TopicWithSessions[],
+  subjectId: string,
+  currentDate: Date
+): TopicWithSessions | null {
+  const available = topics.filter(
+    (t) =>
+      t.subject_id === subjectId &&
+      t.sessionsScheduled < t.sessionsNeeded &&
+      !isAfter(currentDate, t.deadline)
+  )
+
+  if (available.length === 0) return null
+
+  // Sort by deadline, then status, then priority
+  available.sort((a, b) => {
+    // First by deadline
+    const deadlineDiff = a.deadline.getTime() - b.deadline.getTime()
+    if (deadlineDiff !== 0) return deadlineDiff
+
+    // Then by status
+    const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]
+    if (statusDiff !== 0) return statusDiff
+
+    // Then by priority
+    return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
+  })
+
+  return available[0]
+}
+
+/**
+ * Calculate available study days between two dates, excluding blocked dates
+ */
+function countAvailableDays(
+  startDate: Date,
+  endDate: Date,
+  blockedSet: Set<string>,
+  weeklyHours: Record<string, number>
+): number {
+  let count = 0
+  let current = startOfDay(startDate)
+
+  while (isBefore(current, endDate)) {
+    const dateStr = format(current, "yyyy-MM-dd")
+    const dayKey = getDayKey(current)
+    const dailyHours = weeklyHours[dayKey] || 0
+
+    if (!blockedSet.has(dateStr) && dailyHours > 0) {
+      count++
+    }
+    current = addDays(current, 1)
+  }
+
+  return count
+}
+
+/**
+ * Generate a study schedule with proportional pacing per subject
  */
 export function generateSchedule(
   topics: TopicForScheduling[],
@@ -125,7 +194,6 @@ export function generateSchedule(
 ): GeneratedSession[] {
   const {
     weeklyHours,
-    subjectBalance,
     sessionDuration,
     includeReviews,
     bufferDays,
@@ -143,31 +211,7 @@ export function generateSchedule(
     return true
   })
 
-  // Group topics by subject
-  const topicsBySubject: Record<string, TopicForScheduling[]> = {
-    [SUBJECT_IDS.physics]: [],
-    [SUBJECT_IDS.maths]: [],
-    [SUBJECT_IDS.russian]: [],
-  }
-
-  for (const topic of eligibleTopics) {
-    if (topicsBySubject[topic.subject_id]) {
-      topicsBySubject[topic.subject_id].push(topic)
-    }
-  }
-
-  // Sort each subject's topics
-  for (const subjectId of Object.keys(topicsBySubject)) {
-    topicsBySubject[subjectId] = sortTopics(topicsBySubject[subjectId])
-  }
-
-  // Calculate sessions needed per topic
-  interface TopicWithSessions extends TopicForScheduling {
-    sessionsNeeded: number
-    sessionsScheduled: number
-    deadline: Date
-  }
-
+  // Create topics with session tracking
   const topicsWithSessions: TopicWithSessions[] = eligibleTopics.map((t) => ({
     ...t,
     sessionsNeeded: Math.max(1, Math.ceil((t.estimated_hours || 1) / sessionHours)),
@@ -175,32 +219,43 @@ export function generateSchedule(
     deadline: getTopicDeadline(t, bufferDays),
   }))
 
-  // Sort all topics for scheduling
-  topicsWithSessions.sort((a, b) => {
-    // First by deadline (earlier deadlines first)
-    const deadlineDiff = a.deadline.getTime() - b.deadline.getTime()
-    if (deadlineDiff !== 0) return deadlineDiff
+  // Calculate total sessions needed per subject
+  const sessionsBySubject: Record<string, number> = {
+    [SUBJECT_IDS.physics]: 0,
+    [SUBJECT_IDS.maths]: 0,
+    [SUBJECT_IDS.russian]: 0,
+  }
 
-    // Then by status
-    const statusDiff = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]
-    if (statusDiff !== 0) return statusDiff
+  for (const topic of topicsWithSessions) {
+    if (sessionsBySubject[topic.subject_id] !== undefined) {
+      sessionsBySubject[topic.subject_id] += topic.sessionsNeeded
+    }
+  }
 
-    // Then by priority
-    return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]
+  // Calculate pacing for each subject
+  const subjectPacing: SubjectPacing[] = [
+    { key: "physics", id: SUBJECT_IDS.physics },
+    { key: "maths", id: SUBJECT_IDS.maths },
+    { key: "russian", id: SUBJECT_IDS.russian },
+  ].map((s) => {
+    const endDate = addDays(parseISO(SUBJECT_LAST_EXAM[s.id]), -bufferDays)
+    const totalSessions = sessionsBySubject[s.id]
+    const availableDays = countAvailableDays(startDate, endDate, blockedSet, weeklyHours)
+
+    return {
+      ...s,
+      totalSessions,
+      scheduledSessions: 0,
+      endDate,
+      sessionsPerDay: availableDays > 0 ? totalSessions / availableDays : 0,
+      accumulatedDebt: 0,
+    }
   })
 
   const sessions: GeneratedSession[] = []
   const lastExamDate = parseISO("2026-06-18") // Last exam
 
-  // Track sessions per day
   let currentDate = startOfDay(startDate)
-
-  // Track subject session counts for balance
-  const subjectSessionCounts: Record<string, number> = {
-    [SUBJECT_IDS.physics]: 0,
-    [SUBJECT_IDS.maths]: 0,
-    [SUBJECT_IDS.russian]: 0,
-  }
 
   // Schedule day by day
   while (isBefore(currentDate, lastExamDate)) {
@@ -216,88 +271,90 @@ export function generateSchedule(
 
     // Calculate sessions for this day
     const dailySessions = Math.floor(dailyHours / sessionHours)
-
-    // Find topics that can be scheduled today
-    // They must have sessions remaining and deadline not passed
-    const availableTopics = topicsWithSessions.filter(
-      (t) =>
-        t.sessionsScheduled < t.sessionsNeeded &&
-        !isAfter(currentDate, t.deadline)
-    )
-
-    if (availableTopics.length === 0) {
+    if (dailySessions === 0) {
       currentDate = addDays(currentDate, 1)
       continue
     }
 
-    // Schedule sessions for today
-    let sessionsToday = 0
+    // Accumulate debt for each subject that still has sessions to schedule
+    for (const pacing of subjectPacing) {
+      if (pacing.scheduledSessions < pacing.totalSessions &&
+          !isAfter(currentDate, pacing.endDate)) {
+        pacing.accumulatedDebt += pacing.sessionsPerDay
+      }
+    }
 
-    while (sessionsToday < dailySessions) {
-      // Find the next topic to schedule
-      // Prioritize by: deadline urgency, status, priority, and subject balance
-      const remainingTopics = availableTopics.filter(
-        (t) => t.sessionsScheduled < t.sessionsNeeded
-      )
+    let sessionsScheduledToday = 0
 
-      if (remainingTopics.length === 0) break
+    // Schedule sessions based on accumulated debt (highest debt first)
+    while (sessionsScheduledToday < dailySessions) {
+      // Sort subjects by debt (highest first), but only those with remaining sessions
+      const availableSubjects = subjectPacing
+        .filter((p) => {
+          // Has remaining sessions
+          if (p.scheduledSessions >= p.totalSessions) return false
+          // Not past end date
+          if (isAfter(currentDate, p.endDate)) return false
+          // Has at least 1 debt accumulated
+          if (p.accumulatedDebt < 0.5) return false
+          // Has available topics for today
+          const hasTopic = topicsWithSessions.some(
+            (t) =>
+              t.subject_id === p.id &&
+              t.sessionsScheduled < t.sessionsNeeded &&
+              !isAfter(currentDate, t.deadline)
+          )
+          return hasTopic
+        })
+        .sort((a, b) => b.accumulatedDebt - a.accumulatedDebt)
 
-      // Calculate which subject is most under-represented
-      const totalSessions =
-        subjectSessionCounts[SUBJECT_IDS.physics] +
-        subjectSessionCounts[SUBJECT_IDS.maths] +
-        subjectSessionCounts[SUBJECT_IDS.russian] || 1
+      if (availableSubjects.length === 0) {
+        // No subjects with debt, try any subject with remaining topics
+        const anyAvailable = subjectPacing.find((p) => {
+          if (p.scheduledSessions >= p.totalSessions) return false
+          return topicsWithSessions.some(
+            (t) =>
+              t.subject_id === p.id &&
+              t.sessionsScheduled < t.sessionsNeeded &&
+              !isAfter(currentDate, t.deadline)
+          )
+        })
 
-      const subjectDeficit: Record<string, number> = {}
-      for (const [key, subjectId] of Object.entries({
-        physics: SUBJECT_IDS.physics,
-        maths: SUBJECT_IDS.maths,
-        russian: SUBJECT_IDS.russian,
-      })) {
-        const targetPercent = subjectBalance[key] / 100
-        const actualPercent = subjectSessionCounts[subjectId] / totalSessions
-        subjectDeficit[subjectId] = targetPercent - actualPercent
+        if (!anyAvailable) break
+
+        // Schedule from this subject
+        const topic = getBestTopicForSubject(topicsWithSessions, anyAvailable.id, currentDate)
+        if (!topic) break
+
+        sessions.push({
+          topic_id: topic.id,
+          scheduled_date: dateStr,
+          duration_minutes: sessionDuration,
+          notes: null,
+        })
+        topic.sessionsScheduled++
+        anyAvailable.scheduledSessions++
+        sessionsScheduledToday++
+        continue
       }
 
-      // Score each topic
-      const scoredTopics = remainingTopics.map((t) => {
-        // Urgency: how close is the deadline?
-        const daysUntilDeadline = Math.max(
-          0,
-          (t.deadline.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
-        )
-        const urgencyScore = daysUntilDeadline < 7 ? 1000 : daysUntilDeadline < 14 ? 500 : 0
+      // Pick the subject with highest debt
+      const selectedSubject = availableSubjects[0]
 
-        // Status score
-        const statusScore = (2 - STATUS_PRIORITY[t.status]) * 100
+      // Get the best topic from this subject
+      const topic = getBestTopicForSubject(topicsWithSessions, selectedSubject.id, currentDate)
+      if (!topic) break
 
-        // Priority score
-        const priorityScore = (2 - PRIORITY_ORDER[t.priority]) * 50
-
-        // Subject balance score
-        const balanceScore = (subjectDeficit[t.subject_id] || 0) * 200
-
-        return {
-          topic: t,
-          score: urgencyScore + statusScore + priorityScore + balanceScore,
-        }
-      })
-
-      // Pick the highest scoring topic
-      scoredTopics.sort((a, b) => b.score - a.score)
-      const selectedTopic = scoredTopics[0].topic
-
-      // Create session
       sessions.push({
-        topic_id: selectedTopic.id,
+        topic_id: topic.id,
         scheduled_date: dateStr,
         duration_minutes: sessionDuration,
         notes: null,
       })
-
-      selectedTopic.sessionsScheduled++
-      subjectSessionCounts[selectedTopic.subject_id]++
-      sessionsToday++
+      topic.sessionsScheduled++
+      selectedSubject.scheduledSessions++
+      selectedSubject.accumulatedDebt -= 1 // Pay off one session of debt
+      sessionsScheduledToday++
     }
 
     currentDate = addDays(currentDate, 1)
