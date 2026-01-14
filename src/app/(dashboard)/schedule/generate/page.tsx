@@ -61,6 +61,7 @@ export default function GenerateSchedulePage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generationError, setGenerationError] = useState<string | null>(null)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // Fetch data needed for generation
   const { topics, loading: topicsLoading, error: topicsError } = useAllTopics()
@@ -89,10 +90,12 @@ export default function GenerateSchedulePage() {
     } catch (e) {
       console.error("Error loading schedule preferences:", e)
     }
+    setIsHydrated(true)
   }, [])
 
   // Save preferences to localStorage when they change
   useEffect(() => {
+    if (!isHydrated) return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         weeklyHours,
@@ -103,7 +106,7 @@ export default function GenerateSchedulePage() {
     } catch (e) {
       console.error("Error saving schedule preferences:", e)
     }
-  }, [weeklyHours, sessionDuration, includeReviews, bufferBeforeExams])
+  }, [weeklyHours, sessionDuration, includeReviews, bufferBeforeExams, isHydrated])
 
   const totalWeeklyHours = Object.values(weeklyHours).reduce((a, b) => a + b, 0)
   const dataLoading = topicsLoading || blockedLoading
