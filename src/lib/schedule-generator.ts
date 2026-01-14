@@ -26,11 +26,11 @@ const PAPER_DEADLINES: Record<string, { examDate: string; subjectId: string }> =
   "a3333333-3333-3333-3333-333333333333": { examDate: "2026-04-15", subjectId: SUBJECT_IDS.russian }, // Paper 3 - Speaking
 }
 
-// Last exam per subject (for pacing calculation)
-const SUBJECT_LAST_EXAM: Record<string, string> = {
-  [SUBJECT_IDS.physics]: "2026-06-03", // Paper 1
-  [SUBJECT_IDS.maths]: "2026-06-18",   // Paper 3
-  [SUBJECT_IDS.russian]: "2026-06-08", // Paper 2
+// First exam per subject (for pacing calculation - front-loads subjects with more topics)
+const SUBJECT_PACING_DEADLINE: Record<string, string> = {
+  [SUBJECT_IDS.physics]: "2026-04-28", // Paper 3 Practical - first Physics exam
+  [SUBJECT_IDS.maths]: "2026-06-03",   // Paper 1 - first Maths exam
+  [SUBJECT_IDS.russian]: "2026-04-15", // Paper 3 Speaking - first Russian exam
 }
 
 // First exam per subject (for topics without paper_id)
@@ -232,13 +232,13 @@ export function generateSchedule(
     }
   }
 
-  // Calculate pacing for each subject
+  // Calculate pacing for each subject (use first exam to front-load)
   const subjectPacing: SubjectPacing[] = [
     { key: "physics", id: SUBJECT_IDS.physics },
     { key: "maths", id: SUBJECT_IDS.maths },
     { key: "russian", id: SUBJECT_IDS.russian },
   ].map((s) => {
-    const endDate = addDays(parseISO(SUBJECT_LAST_EXAM[s.id]), -bufferDays)
+    const endDate = addDays(parseISO(SUBJECT_PACING_DEADLINE[s.id]), -bufferDays)
     const totalSessions = sessionsBySubject[s.id]
     const availableDays = countAvailableDays(startDate, endDate, blockedSet, weeklyHours)
 
