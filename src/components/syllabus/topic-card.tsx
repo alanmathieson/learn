@@ -122,11 +122,11 @@ export function TopicCard({
 
                 <div className="flex items-center gap-2 shrink-0">
                   <Select value={priority} onValueChange={handlePriorityChange}>
-                    <SelectTrigger className="w-[110px]">
+                    <SelectTrigger className="w-[180px]">
                       <SelectValue>
                         <div className="flex items-center gap-1.5">
                           <AlertTriangle className={`h-3.5 w-3.5 ${TOPIC_PRIORITY_CONFIG[priority].color}`} />
-                          <span className="text-sm">{TOPIC_PRIORITY_CONFIG[priority].label}</span>
+                          <span className="text-sm">{TOPIC_PRIORITY_CONFIG[priority].label} Priority</span>
                         </div>
                       </SelectValue>
                     </SelectTrigger>

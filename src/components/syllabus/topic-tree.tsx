@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Filter } from "lucide-react"
+import { Search, Filter, AlertTriangle } from "lucide-react"
 
 interface TopicNode {
   id: string
@@ -44,6 +44,7 @@ export function TopicTree({
 }: TopicTreeProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [priorityFilter, setPriorityFilter] = useState<string>("all")
 
   // Filter topics recursively
   const filterTopics = useCallback(
@@ -65,11 +66,14 @@ export function TopicTree({
         const matchesStatus =
           statusFilter === "all" || topic.status === statusFilter
 
+        const matchesPriority =
+          priorityFilter === "all" || topic.priority === priorityFilter
+
         // Include this topic if it matches OR if any children match
         const hasMatchingChildren =
           filteredChildren && filteredChildren.length > 0
 
-        if ((matchesSearch && matchesStatus) || hasMatchingChildren) {
+        if ((matchesSearch && matchesStatus && matchesPriority) || hasMatchingChildren) {
           result.push({
             ...topic,
             children: filteredChildren,
@@ -79,7 +83,7 @@ export function TopicTree({
 
       return result
     },
-    [searchQuery, statusFilter]
+    [searchQuery, statusFilter, priorityFilter]
   )
 
   const filteredTopics = filterTopics(topics)
@@ -111,12 +115,25 @@ export function TopicTree({
             <SelectItem value="mastered">Mastered</SelectItem>
           </SelectContent>
         </Select>
-        {(searchQuery || statusFilter !== "all") && (
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-[180px]">
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Filter by priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All priorities</SelectItem>
+            <SelectItem value="high">High Priority</SelectItem>
+            <SelectItem value="medium">Medium Priority</SelectItem>
+            <SelectItem value="low">Low Priority</SelectItem>
+          </SelectContent>
+        </Select>
+        {(searchQuery || statusFilter !== "all" || priorityFilter !== "all") && (
           <Button
             variant="ghost"
             onClick={() => {
               setSearchQuery("")
               setStatusFilter("all")
+              setPriorityFilter("all")
             }}
           >
             Clear filters
