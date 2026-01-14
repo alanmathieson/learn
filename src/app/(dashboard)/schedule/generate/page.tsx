@@ -136,7 +136,7 @@ export default function GenerateSchedulePage() {
           sessionDuration,
           includeReviews,
           bufferDays: bufferBeforeExams,
-          startDate: new Date("2026-01-16"), // Monday 16th January 2026
+          startDate: new Date("2026-01-19"), // Monday 19th January 2026
         }
       )
 
