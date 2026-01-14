@@ -77,7 +77,7 @@ export function TopicCard({
   }
 
   return (
-    <div className={`${depth > 0 ? "ml-4 border-l-2 border-muted pl-4" : ""}`}>
+    <div id={`topic-${id}`} className={`${depth > 0 ? "ml-4 border-l-2 border-muted pl-4" : ""} scroll-mt-20`}>
       <Card className={`mb-2 ${depth === 0 ? "border-2" : "border"}`}>
         <CardContent className="p-4">
           <div className="flex items-start gap-3">

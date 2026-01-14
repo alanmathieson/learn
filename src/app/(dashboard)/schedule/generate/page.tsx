@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Header } from "@/components/layout/header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   ArrowLeft,
   ArrowRight,
@@ -21,9 +22,14 @@ import {
   Languages,
   Check,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { useAllTopics } from "@/hooks/use-all-topics"
+import { useBlockedDates } from "@/hooks/use-blocked-dates"
+import { useScheduledSessions } from "@/hooks/use-scheduled-sessions"
+import { generateSchedule } from "@/lib/schedule-generator"
 
 const steps = [
   { id: 1, title: "Study Hours", description: "Set your weekly availability" },
@@ -42,21 +48,31 @@ const daysOfWeek = [
   { id: "sun", label: "Sun" },
 ]
 
+const STORAGE_KEY = "tiggy-schedule-preferences"
+
+const DEFAULT_WEEKLY_HOURS: Record<string, number> = {
+  mon: 2,
+  tue: 2,
+  wed: 2,
+  thu: 2,
+  fri: 2,
+  sat: 3,
+  sun: 3,
+}
+
 export default function GenerateSchedulePage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
+
+  // Fetch data needed for generation
+  const { topics, loading: topicsLoading, error: topicsError } = useAllTopics()
+  const { blockedDates, loading: blockedLoading } = useBlockedDates()
+  const { createSessions, deleteAllSessions, sessions, supabaseUserId } = useScheduledSessions()
 
   // Step 1: Study Hours
-  const [weeklyHours, setWeeklyHours] = useState<Record<string, number>>({
-    mon: 2,
-    tue: 2,
-    wed: 2,
-    thu: 2,
-    fri: 2,
-    sat: 3,
-    sun: 3,
-  })
+  const [weeklyHours, setWeeklyHours] = useState<Record<string, number>>(DEFAULT_WEEKLY_HOURS)
 
   // Step 2: Subject Balance (percentages)
   const [subjectBalance, setSubjectBalance] = useState({
@@ -68,16 +84,101 @@ export default function GenerateSchedulePage() {
   // Step 3: Preferences
   const [sessionDuration, setSessionDuration] = useState(60)
   const [includeReviews, setIncludeReviews] = useState(true)
-  const [bufferBeforeExams, setBufferBeforeExams] = useState(3)
+  const [bufferBeforeExams, setBufferBeforeExams] = useState(5)
+
+  // Load preferences from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed.weeklyHours) setWeeklyHours(parsed.weeklyHours)
+        if (parsed.subjectBalance) setSubjectBalance(parsed.subjectBalance)
+        if (parsed.sessionDuration) setSessionDuration(parsed.sessionDuration)
+        if (typeof parsed.includeReviews === "boolean") setIncludeReviews(parsed.includeReviews)
+        if (parsed.bufferBeforeExams) setBufferBeforeExams(parsed.bufferBeforeExams)
+      }
+    } catch (e) {
+      console.error("Error loading schedule preferences:", e)
+    }
+  }, [])
+
+  // Save preferences to localStorage when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        weeklyHours,
+        subjectBalance,
+        sessionDuration,
+        includeReviews,
+        bufferBeforeExams,
+      }))
+    } catch (e) {
+      console.error("Error saving schedule preferences:", e)
+    }
+  }, [weeklyHours, subjectBalance, sessionDuration, includeReviews, bufferBeforeExams])
 
   const totalWeeklyHours = Object.values(weeklyHours).reduce((a, b) => a + b, 0)
+  const dataLoading = topicsLoading || blockedLoading
+  const hasExistingSchedule = sessions.length > 0
 
   const handleGenerate = async () => {
+    if (!supabaseUserId) {
+      setGenerationError("User not found. Please try again.")
+      return
+    }
+
     setIsGenerating(true)
-    // Simulate generation
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsGenerating(false)
-    router.push("/schedule")
+    setGenerationError(null)
+
+    try {
+      // Delete existing sessions if any
+      if (hasExistingSchedule) {
+        await deleteAllSessions()
+      }
+
+      // Generate new schedule
+      const generatedSessions = generateSchedule(
+        topics,
+        blockedDates.map((d) => d.date),
+        {
+          weeklyHours,
+          subjectBalance,
+          sessionDuration,
+          includeReviews,
+          bufferDays: bufferBeforeExams,
+          startDate: new Date("2026-01-16"), // Monday 16th January 2026
+        }
+      )
+
+      if (generatedSessions.length === 0) {
+        setGenerationError("No sessions could be generated. Check that you have topics to schedule.")
+        setIsGenerating(false)
+        return
+      }
+
+      // Save to database
+      const success = await createSessions(
+        generatedSessions.map((s) => ({
+          ...s,
+          user_id: supabaseUserId,
+          completed: false,
+          scheduled_time: null,
+        }))
+      )
+
+      if (!success) {
+        setGenerationError("Failed to save schedule. Please try again.")
+        setIsGenerating(false)
+        return
+      }
+
+      router.push("/schedule")
+    } catch (error) {
+      console.error("Generation error:", error)
+      setGenerationError("An error occurred while generating the schedule.")
+      setIsGenerating(false)
+    }
   }
 
   const updateSubjectBalance = (subject: string, value: number) => {
@@ -328,45 +429,79 @@ export default function GenerateSchedulePage() {
 
               {currentStep === 4 && (
                 <div className="space-y-6">
-                  <div className="bg-muted p-4 rounded-lg space-y-3">
-                    <h4 className="font-medium">Schedule Summary</h4>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <span className="text-muted-foreground">Weekly Hours:</span>
-                      <span>{totalWeeklyHours}h</span>
-                      <span className="text-muted-foreground">Session Length:</span>
-                      <span>{sessionDuration} minutes</span>
-                      <span className="text-muted-foreground">Review Sessions:</span>
-                      <span>{includeReviews ? "Yes" : "No"}</span>
-                      <span className="text-muted-foreground">Exam Buffer:</span>
-                      <span>{bufferBeforeExams} days</span>
+                  {dataLoading ? (
+                    <div className="space-y-4">
+                      <Skeleton className="h-32 w-full" />
+                      <Skeleton className="h-24 w-full" />
                     </div>
-                  </div>
-
-                  <div className="bg-muted p-4 rounded-lg space-y-3">
-                    <h4 className="font-medium">Subject Distribution</h4>
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <Atom className="h-6 w-6 mx-auto text-blue-500 mb-1" />
-                        <p className="font-medium">{subjectBalance.physics}%</p>
-                        <p className="text-xs text-muted-foreground">Physics</p>
-                      </div>
-                      <div>
-                        <Calculator className="h-6 w-6 mx-auto text-emerald-500 mb-1" />
-                        <p className="font-medium">{subjectBalance.maths}%</p>
-                        <p className="text-xs text-muted-foreground">Maths</p>
-                      </div>
-                      <div>
-                        <Languages className="h-6 w-6 mx-auto text-red-500 mb-1" />
-                        <p className="font-medium">{subjectBalance.russian}%</p>
-                        <p className="text-xs text-muted-foreground">Russian</p>
-                      </div>
+                  ) : topicsError ? (
+                    <div className="bg-destructive/10 p-4 rounded-lg flex items-center gap-3">
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                      <p className="text-destructive">{topicsError}</p>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="bg-muted p-4 rounded-lg space-y-3">
+                        <h4 className="font-medium">Schedule Summary</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <span className="text-muted-foreground">Weekly Hours:</span>
+                          <span>{totalWeeklyHours}h</span>
+                          <span className="text-muted-foreground">Session Length:</span>
+                          <span>{sessionDuration} minutes</span>
+                          <span className="text-muted-foreground">Review Sessions:</span>
+                          <span>{includeReviews ? "Yes" : "No"}</span>
+                          <span className="text-muted-foreground">Exam Buffer:</span>
+                          <span>{bufferBeforeExams} days</span>
+                          <span className="text-muted-foreground">Topics to Schedule:</span>
+                          <span>{topics.filter(t => t.status !== "confident" && t.status !== "mastered" && (includeReviews || t.status !== "needs_review")).length}</span>
+                          <span className="text-muted-foreground">Blocked Dates:</span>
+                          <span>{blockedDates.length}</span>
+                        </div>
+                      </div>
 
-                  <p className="text-sm text-muted-foreground text-center">
-                    Ready to generate your schedule? This will create study sessions
-                    from now until your exams in June 2026.
-                  </p>
+                      <div className="bg-muted p-4 rounded-lg space-y-3">
+                        <h4 className="font-medium">Subject Distribution</h4>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <Atom className="h-6 w-6 mx-auto text-blue-500 mb-1" />
+                            <p className="font-medium">{subjectBalance.physics}%</p>
+                            <p className="text-xs text-muted-foreground">Physics</p>
+                          </div>
+                          <div>
+                            <Calculator className="h-6 w-6 mx-auto text-emerald-500 mb-1" />
+                            <p className="font-medium">{subjectBalance.maths}%</p>
+                            <p className="text-xs text-muted-foreground">Maths</p>
+                          </div>
+                          <div>
+                            <Languages className="h-6 w-6 mx-auto text-red-500 mb-1" />
+                            <p className="font-medium">{subjectBalance.russian}%</p>
+                            <p className="text-xs text-muted-foreground">Russian</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {hasExistingSchedule && (
+                        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-4 rounded-lg">
+                          <p className="text-sm text-amber-800 dark:text-amber-200">
+                            You have an existing schedule with {sessions.length} sessions.
+                            Generating a new schedule will replace it.
+                          </p>
+                        </div>
+                      )}
+
+                      {generationError && (
+                        <div className="bg-destructive/10 p-4 rounded-lg flex items-center gap-3">
+                          <AlertCircle className="h-5 w-5 text-destructive" />
+                          <p className="text-destructive">{generationError}</p>
+                        </div>
+                      )}
+
+                      <p className="text-sm text-muted-foreground text-center">
+                        Ready to generate your schedule? This will create study sessions
+                        from January 16th 2026 until your exams.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -374,14 +509,21 @@ export default function GenerateSchedulePage() {
 
           {/* Navigation */}
           <div className="flex justify-between mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setCurrentStep(currentStep - 1)}
-              disabled={currentStep === 1}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Previous
-            </Button>
+            {currentStep === 1 ? (
+              <Button variant="outline" asChild>
+                <Link href="/schedule">
+                  Cancel
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(currentStep - 1)}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
+              </Button>
+            )}
 
             {currentStep < 4 ? (
               <Button onClick={() => setCurrentStep(currentStep + 1)}>
@@ -389,7 +531,7 @@ export default function GenerateSchedulePage() {
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={handleGenerate} disabled={isGenerating}>
+              <Button onClick={handleGenerate} disabled={isGenerating || dataLoading || !!topicsError}>
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -398,7 +540,7 @@ export default function GenerateSchedulePage() {
                 ) : (
                   <>
                     <CalendarPlus className="h-4 w-4 mr-2" />
-                    Generate Schedule
+                    {hasExistingSchedule ? "Regenerate Schedule" : "Generate Schedule"}
                   </>
                 )}
               </Button>
