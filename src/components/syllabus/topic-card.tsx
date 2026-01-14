@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/collapsible"
 import { ProgressBadge } from "./progress-badge"
 import { ProgressStatus, PROGRESS_STATUS_CONFIG, TopicPriority, TOPIC_PRIORITY_CONFIG } from "@/types"
-import { ChevronDown, ChevronRight, Clock, Save, Star, AlertTriangle } from "lucide-react"
+import { ChevronDown, ChevronRight, Clock, Save, Star, AlertTriangle, CalendarDays } from "lucide-react"
+import { format, parseISO } from "date-fns"
 
 interface TopicCardProps {
   id: string
@@ -30,6 +31,8 @@ interface TopicCardProps {
   status: ProgressStatus
   notes?: string | null
   confidenceLevel?: number | null
+  scheduledDates?: string[] // Array of scheduled dates for this topic
+  allScheduledDates?: Record<string, string[]> // For passing to children
   children?: TopicCardProps[]
   onStatusChange?: (id: string, status: ProgressStatus) => void
   onNotesChange?: (id: string, notes: string) => void
@@ -48,6 +51,8 @@ export function TopicCard({
   status,
   notes,
   confidenceLevel,
+  scheduledDates,
+  allScheduledDates,
   children,
   onStatusChange,
   onNotesChange,
@@ -112,12 +117,25 @@ export function TopicCard({
                   {description && (
                     <p className="text-sm text-muted-foreground mb-2">{description}</p>
                   )}
-                  {estimatedHours && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>{estimatedHours}h estimated</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {estimatedHours && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{estimatedHours}h estimated</span>
+                      </div>
+                    )}
+                    {scheduledDates && scheduledDates.length > 0 && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <CalendarDays className="h-3 w-3" />
+                        <span>
+                          {scheduledDates.length === 1
+                            ? format(parseISO(scheduledDates[0]), "d MMM")
+                            : `${format(parseISO(scheduledDates[0]), "d MMM")} → ${format(parseISO(scheduledDates[scheduledDates.length - 1]), "d MMM")}`}
+                          {scheduledDates.length > 1 && ` (${scheduledDates.length} sessions)`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
@@ -230,6 +248,8 @@ export function TopicCard({
             <TopicCard
               key={child.id}
               {...child}
+              scheduledDates={allScheduledDates?.[child.id]}
+              allScheduledDates={allScheduledDates}
               depth={depth + 1}
               onStatusChange={onStatusChange}
               onNotesChange={onNotesChange}

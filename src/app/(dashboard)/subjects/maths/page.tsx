@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { Header } from "@/components/layout/header"
 import { SyllabusHelp } from "@/components/help/syllabus-help"
 import { TopicTree } from "@/components/syllabus/topic-tree"
@@ -10,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Calculator, BookOpen, Clock, Target } from "lucide-react"
 import { useTopics } from "@/hooks/use-topics"
 import { useSubject } from "@/hooks/use-subject"
+import { useScheduledSessions } from "@/hooks/use-scheduled-sessions"
 
 const MATHS_SUBJECT_ID = "22222222-2222-2222-2222-222222222222"
 
@@ -18,6 +20,23 @@ export default function MathsPage() {
     subjectId: MATHS_SUBJECT_ID,
   })
   const { stats } = useSubject(MATHS_SUBJECT_ID)
+  const { sessions } = useScheduledSessions()
+
+  // Build map of topic_id -> scheduled dates
+  const scheduledDates = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    for (const session of sessions) {
+      if (!map[session.topic_id]) {
+        map[session.topic_id] = []
+      }
+      map[session.topic_id].push(session.scheduled_date)
+    }
+    // Sort dates for each topic
+    for (const dates of Object.values(map)) {
+      dates.sort()
+    }
+    return map
+  }, [sessions])
 
   // Filter topics by type based on code
   const pureTopics = topics.filter((t) => {
@@ -121,6 +140,7 @@ export default function MathsPage() {
                 </h3>
                 <TopicTree
                   topics={pureTopics}
+                  scheduledDates={scheduledDates}
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
@@ -136,6 +156,7 @@ export default function MathsPage() {
                 </h3>
                 <TopicTree
                   topics={statsTopics}
+                  scheduledDates={scheduledDates}
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
@@ -151,6 +172,7 @@ export default function MathsPage() {
                 </h3>
                 <TopicTree
                   topics={mechTopics}
+                  scheduledDates={scheduledDates}
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}

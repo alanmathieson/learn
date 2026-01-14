@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { Header } from "@/components/layout/header"
 import { SyllabusHelp } from "@/components/help/syllabus-help"
 import { TopicTree } from "@/components/syllabus/topic-tree"
@@ -10,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Atom, BookOpen, Clock, Target } from "lucide-react"
 import { useTopics } from "@/hooks/use-topics"
 import { useSubject } from "@/hooks/use-subject"
+import { useScheduledSessions } from "@/hooks/use-scheduled-sessions"
 
 const PHYSICS_SUBJECT_ID = "11111111-1111-1111-1111-111111111111"
 
@@ -18,6 +20,23 @@ export default function PhysicsPage() {
     subjectId: PHYSICS_SUBJECT_ID,
   })
   const { subject, stats } = useSubject(PHYSICS_SUBJECT_ID)
+  const { sessions } = useScheduledSessions()
+
+  // Build map of topic_id -> scheduled dates
+  const scheduledDates = useMemo(() => {
+    const map: Record<string, string[]> = {}
+    for (const session of sessions) {
+      if (!map[session.topic_id]) {
+        map[session.topic_id] = []
+      }
+      map[session.topic_id].push(session.scheduled_date)
+    }
+    // Sort dates for each topic
+    for (const dates of Object.values(map)) {
+      dates.sort()
+    }
+    return map
+  }, [sessions])
 
   if (error) {
     return (
@@ -110,6 +129,7 @@ export default function PhysicsPage() {
                     const code = parseInt(t.code || "0")
                     return code >= 1 && code <= 11
                   })}
+                  scheduledDates={scheduledDates}
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}
@@ -128,6 +148,7 @@ export default function PhysicsPage() {
                     const code = parseInt(t.code || "0")
                     return code >= 12 && code <= 25
                   })}
+                  scheduledDates={scheduledDates}
                   onStatusChange={updateStatus}
                   onNotesChange={updateNotes}
                   onConfidenceChange={updateConfidence}

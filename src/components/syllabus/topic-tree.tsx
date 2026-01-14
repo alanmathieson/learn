@@ -29,6 +29,7 @@ interface TopicNode {
 
 interface TopicTreeProps {
   topics: TopicNode[]
+  scheduledDates?: Record<string, string[]> // topic_id -> array of scheduled dates
   onStatusChange?: (id: string, status: ProgressStatus) => void
   onNotesChange?: (id: string, notes: string) => void
   onConfidenceChange?: (id: string, level: number) => void
@@ -37,6 +38,7 @@ interface TopicTreeProps {
 
 export function TopicTree({
   topics,
+  scheduledDates,
   onStatusChange,
   onNotesChange,
   onConfidenceChange,
@@ -152,6 +154,8 @@ export function TopicTree({
             <TopicCard
               key={topic.id}
               {...topic}
+              scheduledDates={scheduledDates?.[topic.id]}
+              allScheduledDates={scheduledDates}
               onStatusChange={onStatusChange}
               onNotesChange={onNotesChange}
               onConfidenceChange={onConfidenceChange}
