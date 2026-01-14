@@ -274,9 +274,9 @@ export function generateSchedule(
     }
 
     // Accumulate debt for each subject that still has sessions to schedule
+    // (continue accumulating even after pacing deadline to maintain balance)
     for (const pacing of subjectPacing) {
-      if (pacing.scheduledSessions < pacing.totalSessions &&
-          !isAfter(currentDate, pacing.endDate)) {
+      if (pacing.scheduledSessions < pacing.totalSessions) {
         pacing.accumulatedDebt += pacing.sessionsPerDay
       }
     }
@@ -290,11 +290,9 @@ export function generateSchedule(
         .filter((p) => {
           // Has remaining sessions
           if (p.scheduledSessions >= p.totalSessions) return false
-          // Not past end date
-          if (isAfter(currentDate, p.endDate)) return false
           // Has at least 1 debt accumulated
           if (p.accumulatedDebt < 0.5) return false
-          // Has available topics for today
+          // Has available topics for today (respects individual topic deadlines)
           const hasTopic = topicsWithSessions.some(
             (t) =>
               t.subject_id === p.id &&
