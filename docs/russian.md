@@ -110,6 +110,49 @@ research.
 qualification.
 
 
+## Themes
+
+### Тема 1: Развитие российского общества
+Theme 1 is set in the context of Russia only.
+
+- **Жизнь российской молодёжи** (Life of Russian youth)
+  - Здоровье; отдых; новые технологии (Health; leisure; new technologies)
+- **Образование** (Education)
+  - Система образования; жизнь российских школьников (Education system; life of Russian schoolchildren)
+- **Мир труда** (World of work)
+  - Отношение к труду; возможности для молодых россиян; равноправие (Attitude to work; opportunities for young Russians; equality)
+
+### Тема 2: Политическая и художественная культура в русскоязычном мире
+Theme 2 is set in the context of the Russian-speaking world.
+
+- **Средства массовой информации** (Mass media)
+  - Свобода выражения; печатная и онлайн пресса; влияние на общество и политику (Freedom of expression; print and online press; influence on society and politics)
+- **Массовая культура** (Popular culture)
+  - Музыка; цирк; танец (Music; circus; dance)
+- **Праздники, фестивали и традиции** (Holidays, festivals and traditions)
+  - Фестивали; праздники; обычаи; традиции (Festivals; holidays; customs; traditions)
+
+### Тема 3: Москва или Санкт-Петербург - Изменения в жизни большого российского города
+Theme 3 is set in the context of Russia only.
+
+- **Изменение населения** (Population change)
+  - Жизнь в городе; жизнь в пригородах (Life in the city; life in the suburbs)
+- **Общественные проблемы** (Social problems)
+  - Бездомность; преступность (Homelessness; crime)
+- **Окружающая среда** (Environment)
+  - Реконструкция и благоустройства города; загрязнение (City reconstruction and improvement; pollution)
+
+### Тема 4: Последние годы СССР – М.С. Горбачёв (1985-1991)
+Theme 4 is set in the context of Russia only.
+
+- **Перестройка** (Perestroika)
+  - Что вызвало перестройку; экономические изменения; исходы (What caused perestroika; economic changes; outcomes)
+- **Гласность** (Glasnost)
+  - Что вызвало гласность; общественные изменения; исходы (What caused glasnost; social changes; outcomes)
+- **1991 год** (1991)
+  - Проблемы для СССР к началу 1991 г.; путч в августе; распад СССР (Problems for USSR by early 1991; the August coup; collapse of the USSR)
+
+
 Pearson Edexcel Level 3 Advanced GCE in Russian – Specification
 ## Issue 3 – January 20  22   © Pearson Education Limited 2022
 ## 10

@@ -16,11 +16,13 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarPlus,
+  Calendar,
   Clock,
   Check,
   Loader2,
   AlertCircle,
 } from "lucide-react"
+import { format, parseISO } from "date-fns"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { useAllTopics } from "@/hooks/use-all-topics"
@@ -29,9 +31,10 @@ import { useScheduledSessions } from "@/hooks/use-scheduled-sessions"
 import { generateSchedule } from "@/lib/schedule-generator"
 
 const steps = [
-  { id: 1, title: "Study Hours", description: "Set your weekly availability" },
-  { id: 2, title: "Preferences", description: "Fine-tune your schedule" },
-  { id: 3, title: "Generate", description: "Review and create" },
+  { id: 1, title: "Start Date", description: "When to begin your schedule" },
+  { id: 2, title: "Study Hours", description: "Set your weekly availability" },
+  { id: 3, title: "Preferences", description: "Fine-tune your schedule" },
+  { id: 4, title: "Generate", description: "Review and create" },
 ]
 
 const daysOfWeek = [
@@ -68,10 +71,13 @@ export default function GenerateSchedulePage() {
   const { blockedDates, loading: blockedLoading } = useBlockedDates()
   const { createSessions, deleteAllSessions, sessions, supabaseUserId } = useScheduledSessions()
 
-  // Step 1: Study Hours
+  // Step 1: Start Date
+  const [startDate, setStartDate] = useState("2026-01-19")
+
+  // Step 2: Study Hours
   const [weeklyHours, setWeeklyHours] = useState<Record<string, number>>(DEFAULT_WEEKLY_HOURS)
 
-  // Step 2: Preferences
+  // Step 3: Preferences
   const [sessionDuration, setSessionDuration] = useState(60)
   const [includeReviews, setIncludeReviews] = useState(true)
   const [bufferBeforeExams, setBufferBeforeExams] = useState(5)
@@ -82,6 +88,7 @@ export default function GenerateSchedulePage() {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
+        if (parsed.startDate) setStartDate(parsed.startDate)
         if (parsed.weeklyHours) setWeeklyHours(parsed.weeklyHours)
         if (parsed.sessionDuration) setSessionDuration(parsed.sessionDuration)
         if (typeof parsed.includeReviews === "boolean") setIncludeReviews(parsed.includeReviews)
@@ -98,6 +105,7 @@ export default function GenerateSchedulePage() {
     if (!isHydrated) return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        startDate,
         weeklyHours,
         sessionDuration,
         includeReviews,
@@ -106,7 +114,7 @@ export default function GenerateSchedulePage() {
     } catch (e) {
       console.error("Error saving schedule preferences:", e)
     }
-  }, [weeklyHours, sessionDuration, includeReviews, bufferBeforeExams, isHydrated])
+  }, [startDate, weeklyHours, sessionDuration, includeReviews, bufferBeforeExams, isHydrated])
 
   const totalWeeklyHours = Object.values(weeklyHours).reduce((a, b) => a + b, 0)
   const dataLoading = topicsLoading || blockedLoading
@@ -136,7 +144,7 @@ export default function GenerateSchedulePage() {
           sessionDuration,
           includeReviews,
           bufferDays: bufferBeforeExams,
-          startDate: new Date("2026-01-19"), // Monday 19th January 2026
+          startDate: parseISO(startDate),
         }
       )
 
@@ -236,6 +244,29 @@ export default function GenerateSchedulePage() {
               {currentStep === 1 && (
                 <div className="space-y-6">
                   <p className="text-sm text-muted-foreground">
+                    Choose when you want your study schedule to begin. The scheduler
+                    will create sessions from this date until your exams.
+                  </p>
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                      <Calendar className="h-5 w-5 text-muted-foreground" />
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="w-auto"
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Schedule starts: <span className="font-medium">{format(parseISO(startDate), "EEEE, d MMMM yyyy")}</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <p className="text-sm text-muted-foreground">
                     Set how many hours you can study each day. The scheduler will
                     distribute your revision across these available slots.
                   </p>
@@ -268,7 +299,7 @@ export default function GenerateSchedulePage() {
                 </div>
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 3 && (
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -330,7 +361,7 @@ export default function GenerateSchedulePage() {
                 </div>
               )}
 
-              {currentStep === 3 && (
+              {currentStep === 4 && (
                 <div className="space-y-6">
                   {dataLoading ? (
                     <div className="space-y-4">
@@ -347,6 +378,8 @@ export default function GenerateSchedulePage() {
                       <div className="bg-muted p-4 rounded-lg space-y-3">
                         <h4 className="font-medium">Schedule Summary</h4>
                         <div className="grid grid-cols-2 gap-2 text-sm">
+                          <span className="text-muted-foreground">Start Date:</span>
+                          <span>{format(parseISO(startDate), "d MMM yyyy")}</span>
                           <span className="text-muted-foreground">Weekly Hours:</span>
                           <span>{totalWeeklyHours}h</span>
                           <span className="text-muted-foreground">Session Length:</span>
@@ -380,7 +413,7 @@ export default function GenerateSchedulePage() {
 
                       <p className="text-sm text-muted-foreground text-center">
                         Ready to generate your schedule? This will create study sessions
-                        from January 16th 2026 until your exams.
+                        from {format(parseISO(startDate), "d MMMM yyyy")} until your exams.
                       </p>
                     </>
                   )}
@@ -407,7 +440,7 @@ export default function GenerateSchedulePage() {
               </Button>
             )}
 
-            {currentStep < 3 ? (
+            {currentStep < 4 ? (
               <Button onClick={() => setCurrentStep(currentStep + 1)}>
                 Next
                 <ArrowRight className="h-4 w-4 ml-2" />
